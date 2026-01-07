@@ -3,6 +3,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { DataCleaningController } from './data-cleaning.controller';
 
 @Module({
   imports: [
@@ -29,7 +30,7 @@ import { AppService } from './app.service';
       inject: [ConfigService],
     }),
   ],
-  controllers: [AppController],
+  controllers: [AppController, DataCleaningController],
   providers: [AppService],
 })
 export class AppModule { }

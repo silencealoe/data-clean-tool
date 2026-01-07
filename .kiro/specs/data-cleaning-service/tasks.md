@@ -6,7 +6,7 @@
 
 ## 任务
 
-- [ ] 1. 初始化NestJS项目和基础配置
+- [x] 1. 初始化NestJS项目和基础配置
   - 使用Nest CLI创建新项目
   - 配置TypeScript编译选项
   - 安装必要的依赖包：@nestjs/common, @nestjs/platform-express, @nestjs/typeorm, typeorm, mysql2, multer, xlsx, class-validator, class-transformer
