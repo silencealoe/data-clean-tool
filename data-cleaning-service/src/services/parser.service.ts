@@ -1,5 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import * as XLSX from 'xlsx';
+import * as fs from 'fs';
+import * as path from 'path';
 import { ParsedData, SheetData, RowData, ColumnTypeMap, ColumnType } from '../common/types';
 
 @Injectable()
@@ -7,10 +9,185 @@ export class ParserService {
     private readonly logger = new Logger(ParserService.name);
 
     /**
-     * 解析Excel文件
-     * @param filePath Excel文件路径
+     * 解析文件（支持Excel和CSV）
+     * @param filePath 文件路径
      * @returns 解析后的数据
      */
+    async parseFile(filePath: string): Promise<ParsedData> {
+        const fileExtension = path.extname(filePath).toLowerCase();
+
+        switch (fileExtension) {
+            case '.xlsx':
+            case '.xls':
+                return this.parseExcelFile(filePath);
+            case '.csv':
+                return this.parseCsvFile(filePath);
+            default:
+                throw new Error(`不支持的文件类型: ${fileExtension}`);
+        }
+    }
+
+    /**
+     * 解析CSV文件
+     * @param filePath CSV文件路径
+     * @returns 解析后的数据
+     */
+    async parseCsvFile(filePath: string): Promise<ParsedData> {
+        try {
+            this.logger.log(`开始解析CSV文件: ${filePath}`);
+
+            // 读取CSV文件内容
+            const fileContent = fs.readFileSync(filePath, 'utf8');
+
+            // 检测编码并转换
+            const csvContent = this.detectAndConvertEncoding(fileContent);
+
+            // 解析CSV内容
+            const csvData = this.parseCsvContent(csvContent);
+
+            if (csvData.length === 0) {
+                throw new Error('CSV文件为空或格式不正确');
+            }
+
+            // 提取表头（第一行）
+            const headers = Object.keys(csvData[0] || {});
+
+            // 转换为RowData格式
+            const rows: RowData[] = csvData.map((row, index) => ({
+                rowNumber: index + 2, // CSV行号从2开始（第1行是表头）
+                data: row,
+            }));
+
+            // 识别列类型
+            const sampleData = csvData.slice(0, Math.min(10, csvData.length));
+            const columnTypes = this.identifyColumnTypes(headers, sampleData);
+
+            const sheetData: SheetData = {
+                name: 'Sheet1', // CSV文件只有一个工作表
+                headers,
+                rows,
+                columnTypes,
+            };
+
+            this.logger.log(`CSV解析完成，共处理 ${rows.length} 行数据`);
+
+            return {
+                sheets: [sheetData],
+                totalRows: rows.length,
+            };
+        } catch (error) {
+            this.logger.error(`CSV文件解析失败: ${error.message}`, error.stack);
+            throw new Error(`CSV文件解析失败: ${error.message}`);
+        }
+    }
+
+    /**
+     * 检测并转换文件编码
+     * @param content 文件内容
+     * @returns 转换后的UTF-8内容
+     */
+    private detectAndConvertEncoding(content: string): string {
+        // 简单的编码检测和转换
+        // 如果包含乱码字符，尝试从GBK转换
+        if (this.containsGarbledText(content)) {
+            try {
+                // 这里可以使用iconv-lite库进行编码转换
+                // 暂时返回原内容，后续可以扩展
+                this.logger.warn('检测到可能的编码问题，建议使用UTF-8编码的CSV文件');
+            } catch (error) {
+                this.logger.warn('编码转换失败，使用原始内容');
+            }
+        }
+        return content;
+    }
+
+    /**
+     * 检测是否包含乱码文本
+     * @param text 文本内容
+     * @returns 是否包含乱码
+     */
+    private containsGarbledText(text: string): boolean {
+        // 检测常见的乱码模式
+        const garbledPatterns = [
+            /[��]/g, // 常见的乱码字符
+            /[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, // 控制字符
+        ];
+
+        return garbledPatterns.some(pattern => pattern.test(text));
+    }
+
+    /**
+     * 解析CSV内容
+     * @param csvContent CSV文件内容
+     * @returns 解析后的JSON数据
+     */
+    private parseCsvContent(csvContent: string): any[] {
+        const lines = csvContent.split('\n').filter(line => line.trim() !== '');
+
+        if (lines.length === 0) {
+            return [];
+        }
+
+        // 解析第一行作为表头
+        const headers = this.parseCsvLine(lines[0]);
+        const dataRows = lines.slice(1);
+
+        // 解析数据行
+        const jsonData = dataRows.map(line => {
+            const values = this.parseCsvLine(line);
+            const rowObj: Record<string, any> = {};
+
+            headers.forEach((header, index) => {
+                rowObj[header] = values[index] || '';
+            });
+
+            return rowObj;
+        });
+
+        return jsonData;
+    }
+
+    /**
+     * 解析CSV行（处理引号和逗号）
+     * @param line CSV行内容
+     * @returns 解析后的字段数组
+     */
+    private parseCsvLine(line: string): string[] {
+        const result: string[] = [];
+        let current = '';
+        let inQuotes = false;
+        let i = 0;
+
+        while (i < line.length) {
+            const char = line[i];
+            const nextChar = line[i + 1];
+
+            if (char === '"') {
+                if (inQuotes && nextChar === '"') {
+                    // 转义的引号
+                    current += '"';
+                    i += 2;
+                } else {
+                    // 开始或结束引号
+                    inQuotes = !inQuotes;
+                    i++;
+                }
+            } else if (char === ',' && !inQuotes) {
+                // 字段分隔符
+                result.push(current.trim());
+                current = '';
+                i++;
+            } else {
+                current += char;
+                i++;
+            }
+        }
+
+        // 添加最后一个字段
+        result.push(current.trim());
+
+        return result;
+    }
     async parseExcelFile(filePath: string): Promise<ParsedData> {
         try {
             this.logger.log(`开始解析Excel文件: ${filePath}`);

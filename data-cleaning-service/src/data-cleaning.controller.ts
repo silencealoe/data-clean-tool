@@ -482,8 +482,8 @@ export class DataCleaningController {
             await this.fileRecordService.updateFileStatus(fileRecordId, FileStatus.PROCESSING);
 
             // Parse Excel file
-            this.logger.log(`解析Excel文件: ${tempFilePath}`);
-            const parsedData = await this.parserService.parseExcelFile(tempFilePath);
+            this.logger.log(`解析文件: ${tempFilePath}`);
+            const parsedData = await this.parserService.parseFile(tempFilePath);
 
             // Update file record with total rows after parsing
             await this.fileRecordService.updateFileStatus(fileRecordId, FileStatus.PROCESSING, {

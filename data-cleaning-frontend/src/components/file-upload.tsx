@@ -226,17 +226,17 @@ export function FileUpload({ className, onUploadSuccess, onUploadError }: FileUp
                             isDragOver ? "text-blue-500" : "text-muted-foreground"
                         )} />
                     </div>
-                    <h3 className="text-lg font-medium mb-2 transition-colors duration-300">上传Excel文件</h3>
+                    <h3 className="text-lg font-medium mb-2 transition-colors duration-300">上传数据文件</h3>
                     <p className="text-sm text-muted-foreground mb-4 transition-colors duration-300">
                         拖拽文件到此处，或点击选择文件
                     </p>
                     <p className="text-xs text-muted-foreground mb-6 transition-colors duration-300">
-                        支持 .xlsx 和 .xls 格式，文件大小不超过 10MB
+                        支持 .xlsx、.xls 和 .csv 格式，文件大小不超过 10MB
                     </p>
 
                     <input
                         type="file"
-                        accept=".xlsx,.xls"
+                        accept=".xlsx,.xls,.csv"
                         onChange={handleFileInputChange}
                         className="hidden"
                         id="file-upload"

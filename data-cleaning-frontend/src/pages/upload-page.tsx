@@ -95,7 +95,7 @@ export function UploadPage() {
                             文件上传
                         </h1>
                         <p className="text-lg text-gray-600 dark:text-gray-400">
-                            上传Excel文件开始数据清洗处理
+                            上传Excel或CSV文件开始数据清洗处理
                         </p>
                     </div>
                 </div>

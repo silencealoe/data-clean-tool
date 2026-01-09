@@ -22,7 +22,7 @@ export function validateFile(file: File): ValidationResult {
     if (!ALLOWED_FILE_TYPES.includes(fileExtension)) {
         return {
             isValid: false,
-            error: `请上传Excel文件（${ALLOWED_FILE_TYPES.join('、')} 格式）`
+            error: `请上传支持的文件格式（${ALLOWED_FILE_TYPES.join('、')} 格式）`
         };
     }
 
@@ -30,7 +30,7 @@ export function validateFile(file: File): ValidationResult {
     if (!ALLOWED_MIME_TYPES.includes(file.type)) {
         return {
             isValid: false,
-            error: `文件类型不支持，请上传Excel文件`
+            error: `文件类型不支持，请上传Excel或CSV文件`
         };
     }
 
@@ -64,9 +64,9 @@ export function formatFileSize(bytes: number): string {
 }
 
 /**
- * 检查文件是否为Excel文件
+ * 检查文件是否为支持的文件类型
  */
-export function isExcelFile(file: File): boolean {
+export function isSupportedFile(file: File): boolean {
     const extension = getFileExtension(file.name);
     return ALLOWED_FILE_TYPES.includes(extension) && ALLOWED_MIME_TYPES.includes(file.type);
 }

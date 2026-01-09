@@ -6,10 +6,13 @@
 export const ALLOWED_MIME_TYPES = [
     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
     'application/vnd.ms-excel', // .xls
+    'text/csv', // .csv
+    'application/csv', // .csv (alternative MIME type)
+    'text/plain', // .csv (sometimes detected as plain text)
 ];
 
 // Allowed file extensions
-export const ALLOWED_EXTENSIONS = ['.xlsx', '.xls'];
+export const ALLOWED_EXTENSIONS = ['.xlsx', '.xls', '.csv'];
 
 // Default max file size (10MB)
 export const DEFAULT_MAX_FILE_SIZE = 10 * 1024 * 1024;

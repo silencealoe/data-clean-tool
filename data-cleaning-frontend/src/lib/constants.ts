@@ -8,10 +8,13 @@ export const APP_DESCRIPTION = import.meta.env.VITE_APP_DESCRIPTION || '专业�
 
 // File Upload Configuration
 export const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
-export const ALLOWED_FILE_TYPES = ['.xlsx', '.xls']
+export const ALLOWED_FILE_TYPES = ['.xlsx', '.xls', '.csv']
 export const ALLOWED_MIME_TYPES = [
     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    'application/vnd.ms-excel'
+    'application/vnd.ms-excel',
+    'text/csv',
+    'application/csv',
+    'text/plain' // CSV files are sometimes detected as plain text
 ]
 
 // Polling Configuration
