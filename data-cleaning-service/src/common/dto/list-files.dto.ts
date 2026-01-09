@@ -42,7 +42,7 @@ export class ListFilesDto {
 
     @ApiPropertyOptional({
         description: '开始日期（ISO格式）',
-        example: '2024-01-01T00:00:00.000Z'
+        example: '2026-01-01T00:00:00.000Z'
     })
     @IsOptional()
     @IsDateString()
@@ -50,7 +50,7 @@ export class ListFilesDto {
 
     @ApiPropertyOptional({
         description: '结束日期（ISO格式）',
-        example: '2024-12-31T23:59:59.999Z'
+        example: '2026-12-31T23:59:59.999Z'
     })
     @IsOptional()
     @IsDateString()

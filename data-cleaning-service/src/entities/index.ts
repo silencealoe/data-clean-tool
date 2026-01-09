@@ -1,0 +1,1 @@
+export { FileRecord } from './file-record.entity';

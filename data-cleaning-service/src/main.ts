@@ -26,7 +26,7 @@ async function bootstrap() {
     .addTag('data-cleaning', '数据清洗相关接口')
     .addTag('file-management', '文件管理相关接口')
     .addTag('export', '数据导出相关接口')
-    .addServer('http://localhost:3000', '开发环境')
+    .addServer('http://localhost:3100', '开发环境')
     .addBearerAuth()
     .build();
 
@@ -45,7 +45,7 @@ async function bootstrap() {
   fs.writeFileSync(outputPath, JSON.stringify(document, null, 2));
   console.log(`Swagger JSON file generated at: ${outputPath}`);
 
-  const port = process.env.PORT || 3100;
+  const port = process.env.PORT || 3000;
   await app.listen(port);
   console.log(`Application is running on: http://localhost:${port}`);
   console.log(`Swagger documentation available at: http://localhost:${port}/api-docs`);

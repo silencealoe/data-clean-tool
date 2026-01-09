@@ -4,6 +4,17 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { DataCleaningController } from './data-cleaning.controller';
+import { FileRecord } from './entities';
+import {
+  FileRecordService,
+  FileService,
+  DateCleanerService,
+  AddressCleanerService,
+  PhoneCleanerService,
+  ParserService,
+  DataCleanerService,
+  ExportService
+} from './services';
 
 @Module({
   imports: [
@@ -23,14 +34,36 @@ import { DataCleaningController } from './data-cleaning.controller';
         username: configService.get<string>('DB_USERNAME', 'root'),
         password: configService.get<string>('DB_PASSWORD', 'password'),
         database: configService.get<string>('DB_DATABASE', 'data_cleaning_service'),
-        entities: [__dirname + '/**/*.entity{.ts,.js}'],
+        entities: [FileRecord],
         synchronize: configService.get<boolean>('DB_SYNCHRONIZE', true),
         logging: configService.get<boolean>('DB_LOGGING', false),
+        // Additional configuration for better performance and reliability
+        autoLoadEntities: true,
+        retryAttempts: 3,
+        retryDelay: 3000,
+        // 确保使用正确的字符集处理中文
+        charset: 'utf8mb4',
+        extra: {
+          charset: 'utf8mb4_unicode_ci',
+        },
       }),
       inject: [ConfigService],
     }),
+
+    // Configure TypeORM for entities
+    TypeOrmModule.forFeature([FileRecord]),
   ],
   controllers: [AppController, DataCleaningController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    FileRecordService,
+    FileService,
+    DateCleanerService,
+    AddressCleanerService,
+    PhoneCleanerService,
+    ParserService,
+    DataCleanerService,
+    ExportService
+  ],
 })
 export class AppModule { }

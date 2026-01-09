@@ -1,0 +1,720 @@
+{
+  "openapi": "3.0.0",
+  "paths": {
+    "/": {
+      "get": {
+        "description": "返回系统的基本欢迎信息，用于健康检查",
+        "operationId": "AppController_getHello",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "成功返回欢迎信息",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string",
+                  "example": "Hello World!"
+                }
+              }
+            }
+          }
+        },
+        "summary": "获取系统欢迎信息",
+        "tags": [
+          "系统信息"
+        ]
+      }
+    },
+    "/api/data-cleaning/upload": {
+      "post": {
+        "description": "上传Excel文件进行数据清洗处理。支持.xlsx和.xls格式，最大文件大小10MB。",
+        "operationId": "DataCleaningController_uploadFile",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "description": "Excel文件上传",
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "Excel文件（.xlsx或.xls格式）"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "文件上传成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "文件格式不支持或文件过大",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "上传Excel文件",
+        "tags": [
+          "data-cleaning"
+        ]
+      }
+    },
+    "/api/data-cleaning/status/{jobId}": {
+      "get": {
+        "description": "根据任务ID查询数据处理的当前状态和进度",
+        "operationId": "DataCleaningController_getStatus",
+        "parameters": [
+          {
+            "name": "jobId",
+            "required": true,
+            "in": "path",
+            "description": "任务ID",
+            "schema": {
+              "example": "job_123456789",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功返回处理状态",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "任务不存在",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "查询处理状态",
+        "tags": [
+          "data-cleaning"
+        ]
+      }
+    },
+    "/api/data-cleaning/files": {
+      "get": {
+        "description": "分页查询所有上传的文件记录，支持按状态和日期范围筛选",
+        "operationId": "DataCleaningController_listFiles",
+        "parameters": [
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "description": "页码",
+            "schema": {
+              "minimum": 1,
+              "default": 1,
+              "example": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": false,
+            "in": "query",
+            "description": "每页数量",
+            "schema": {
+              "minimum": 1,
+              "default": 10,
+              "example": 10,
+              "type": "number"
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "description": "文件状态筛选",
+            "schema": {
+              "example": "completed",
+              "type": "string",
+              "enum": [
+                "pending",
+                "processing",
+                "completed",
+                "failed"
+              ]
+            }
+          },
+          {
+            "name": "startDate",
+            "required": false,
+            "in": "query",
+            "description": "开始日期（ISO格式）",
+            "schema": {
+              "example": "2026-01-01T00:00:00.000Z",
+              "type": "string"
+            }
+          },
+          {
+            "name": "endDate",
+            "required": false,
+            "in": "query",
+            "description": "结束日期（ISO格式）",
+            "schema": {
+              "example": "2026-12-31T23:59:59.999Z",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功返回文件列表",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FileListResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "查询文件列表",
+        "tags": [
+          "data-cleaning"
+        ]
+      }
+    },
+    "/api/data-cleaning/files/{fileId}": {
+      "get": {
+        "description": "根据文件ID查询文件的详细信息和处理统计",
+        "operationId": "DataCleaningController_getFileDetail",
+        "parameters": [
+          {
+            "name": "fileId",
+            "required": true,
+            "in": "path",
+            "description": "文件ID",
+            "schema": {
+              "example": "file_987654321",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功返回文件详情",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FileDetailResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "文件不存在",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "查询文件详情",
+        "tags": [
+          "data-cleaning"
+        ]
+      }
+    },
+    "/api/data-cleaning/download/clean/{jobId}": {
+      "get": {
+        "description": "下载处理后的清洁数据Excel文件",
+        "operationId": "DataCleaningController_downloadClean",
+        "parameters": [
+          {
+            "name": "jobId",
+            "required": true,
+            "in": "path",
+            "description": "任务ID",
+            "schema": {
+              "example": "job_123456789",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功下载清洁数据文件",
+            "content": {
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "文件不存在或处理未完成",
+            "content": {
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "下载清洁数据",
+        "tags": [
+          "data-cleaning"
+        ]
+      }
+    },
+    "/api/data-cleaning/download/exceptions/{jobId}": {
+      "get": {
+        "description": "下载处理过程中发现的异常数据Excel文件，包含异常原因说明",
+        "operationId": "DataCleaningController_downloadExceptions",
+        "parameters": [
+          {
+            "name": "jobId",
+            "required": true,
+            "in": "path",
+            "description": "任务ID",
+            "schema": {
+              "example": "job_123456789",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功下载异常数据文件",
+            "content": {
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "文件不存在或无异常数据",
+            "content": {
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "下载异常数据",
+        "tags": [
+          "data-cleaning"
+        ]
+      }
+    }
+  },
+  "info": {
+    "title": "数据清洗服务 API",
+    "description": "数据清洗服务的API文档，用于处理Excel文件中的脏数据，提供数据清洗和标准化功能",
+    "version": "1.0",
+    "contact": {}
+  },
+  "tags": [
+    {
+      "name": "data-cleaning",
+      "description": "数据清洗相关接口"
+    },
+    {
+      "name": "file-management",
+      "description": "文件管理相关接口"
+    },
+    {
+      "name": "export",
+      "description": "数据导出相关接口"
+    }
+  ],
+  "servers": [
+    {
+      "url": "http://localhost:3100",
+      "description": "开发环境"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "bearer": {
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "type": "http"
+      }
+    },
+    "schemas": {
+      "UploadResponseDto": {
+        "type": "object",
+        "properties": {
+          "jobId": {
+            "type": "string",
+            "description": "任务ID，用于后续查询处理状态",
+            "example": "job_123456789"
+          },
+          "fileId": {
+            "type": "string",
+            "description": "文件ID，用于文件管理",
+            "example": "file_987654321"
+          },
+          "message": {
+            "type": "string",
+            "description": "响应消息",
+            "example": "文件上传成功，开始处理"
+          },
+          "totalRows": {
+            "type": "number",
+            "description": "文件总行数",
+            "example": 1000
+          }
+        },
+        "required": [
+          "jobId",
+          "fileId",
+          "message",
+          "totalRows"
+        ]
+      },
+      "ErrorResponseDto": {
+        "type": "object",
+        "properties": {
+          "statusCode": {
+            "type": "number",
+            "description": "HTTP状态码",
+            "example": 400
+          },
+          "errorCode": {
+            "type": "string",
+            "description": "错误代码",
+            "example": "UNSUPPORTED_FILE_TYPE"
+          },
+          "message": {
+            "type": "string",
+            "description": "错误消息",
+            "example": "不支持的文件类型，请上传Excel文件"
+          },
+          "details": {
+            "type": "object",
+            "description": "详细错误信息",
+            "example": {
+              "field": "file",
+              "reason": "Invalid MIME type"
+            }
+          },
+          "timestamp": {
+            "type": "string",
+            "description": "时间戳",
+            "example": "2024-01-15T10:30:00.000Z"
+          }
+        },
+        "required": [
+          "statusCode",
+          "errorCode",
+          "message",
+          "timestamp"
+        ]
+      },
+      "StatusResponseDto": {
+        "type": "object",
+        "properties": {
+          "jobId": {
+            "type": "string",
+            "description": "任务ID",
+            "example": "job_123456789"
+          },
+          "status": {
+            "type": "string",
+            "description": "处理状态",
+            "enum": [
+              "processing",
+              "completed",
+              "failed"
+            ],
+            "example": "completed"
+          },
+          "progress": {
+            "type": "number",
+            "description": "处理进度百分比",
+            "minimum": 0,
+            "maximum": 100,
+            "example": 100
+          },
+          "statistics": {
+            "type": "object",
+            "description": "处理统计信息（仅在完成时提供）",
+            "properties": {
+              "totalRows": {
+                "type": "number",
+                "description": "总行数"
+              },
+              "cleanedRows": {
+                "type": "number",
+                "description": "清洗成功行数"
+              },
+              "exceptionRows": {
+                "type": "number",
+                "description": "异常行数"
+              },
+              "processingTime": {
+                "type": "number",
+                "description": "处理时间（毫秒）"
+              }
+            }
+          }
+        },
+        "required": [
+          "jobId",
+          "status",
+          "progress"
+        ]
+      },
+      "FileRecordDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "文件ID",
+            "example": "file_987654321"
+          },
+          "jobId": {
+            "type": "string",
+            "description": "任务ID",
+            "example": "job_123456789"
+          },
+          "originalFileName": {
+            "type": "string",
+            "description": "原始文件名",
+            "example": "customer_data.xlsx"
+          },
+          "fileSize": {
+            "type": "number",
+            "description": "文件大小（字节）",
+            "example": 1048576
+          },
+          "fileType": {
+            "type": "string",
+            "description": "文件类型",
+            "example": "xlsx"
+          },
+          "status": {
+            "type": "string",
+            "description": "处理状态",
+            "enum": [
+              "pending",
+              "processing",
+              "completed",
+              "failed"
+            ],
+            "example": "completed"
+          },
+          "uploadedAt": {
+            "format": "date-time",
+            "type": "string",
+            "description": "上传时间",
+            "example": "2024-01-15T10:30:00.000Z"
+          },
+          "completedAt": {
+            "type": "object",
+            "description": "完成时间",
+            "example": "2024-01-15T10:35:00.000Z",
+            "nullable": true
+          },
+          "totalRows": {
+            "type": "object",
+            "description": "总行数",
+            "example": 1000,
+            "nullable": true
+          },
+          "cleanedRows": {
+            "type": "object",
+            "description": "清洗成功行数",
+            "example": 950,
+            "nullable": true
+          },
+          "exceptionRows": {
+            "type": "object",
+            "description": "异常行数",
+            "example": 50,
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "jobId",
+          "originalFileName",
+          "fileSize",
+          "fileType",
+          "status",
+          "uploadedAt",
+          "completedAt",
+          "totalRows",
+          "cleanedRows",
+          "exceptionRows"
+        ]
+      },
+      "FileListResponseDto": {
+        "type": "object",
+        "properties": {
+          "files": {
+            "description": "文件记录列表",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FileRecordDto"
+            }
+          },
+          "total": {
+            "type": "number",
+            "description": "总记录数",
+            "example": 100
+          },
+          "page": {
+            "type": "number",
+            "description": "当前页码",
+            "example": 1
+          },
+          "pageSize": {
+            "type": "number",
+            "description": "每页数量",
+            "example": 10
+          }
+        },
+        "required": [
+          "files",
+          "total",
+          "page",
+          "pageSize"
+        ]
+      },
+      "FileDetailResponseDto": {
+        "type": "object",
+        "properties": {
+          "file": {
+            "type": "object",
+            "description": "文件详细信息",
+            "properties": {
+              "id": {
+                "type": "string",
+                "description": "文件ID"
+              },
+              "jobId": {
+                "type": "string",
+                "description": "任务ID"
+              },
+              "originalFileName": {
+                "type": "string",
+                "description": "原始文件名"
+              },
+              "fileSize": {
+                "type": "number",
+                "description": "文件大小（字节）"
+              },
+              "fileType": {
+                "type": "string",
+                "description": "文件类型"
+              },
+              "mimeType": {
+                "type": "string",
+                "description": "MIME类型"
+              },
+              "status": {
+                "type": "string",
+                "description": "处理状态"
+              },
+              "uploadedAt": {
+                "type": "string",
+                "format": "date-time",
+                "description": "上传时间"
+              },
+              "completedAt": {
+                "type": "string",
+                "format": "date-time",
+                "description": "完成时间",
+                "nullable": true
+              },
+              "totalRows": {
+                "type": "number",
+                "description": "总行数",
+                "nullable": true
+              },
+              "cleanedRows": {
+                "type": "number",
+                "description": "清洗成功行数",
+                "nullable": true
+              },
+              "exceptionRows": {
+                "type": "number",
+                "description": "异常行数",
+                "nullable": true
+              },
+              "processingTime": {
+                "type": "number",
+                "description": "处理时间（毫秒）",
+                "nullable": true
+              },
+              "errorMessage": {
+                "type": "string",
+                "description": "错误信息",
+                "nullable": true
+              }
+            }
+          },
+          "statistics": {
+            "type": "object",
+            "description": "处理统计信息",
+            "properties": {
+              "totalRows": {
+                "type": "number",
+                "description": "总行数"
+              },
+              "cleanedRows": {
+                "type": "number",
+                "description": "清洗成功行数"
+              },
+              "exceptionRows": {
+                "type": "number",
+                "description": "异常行数"
+              },
+              "processingTime": {
+                "type": "number",
+                "description": "处理时间（毫秒）"
+              }
+            }
+          }
+        },
+        "required": [
+          "file"
+        ]
+      }
+    }
+  }
+}
