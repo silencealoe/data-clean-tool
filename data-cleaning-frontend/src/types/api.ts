@@ -98,6 +98,15 @@ export interface FileListParams extends Record<string, unknown> {
     endDate?: string;
 }
 
+// 分页数据响应接口
+export interface PaginatedDataResponse {
+    data: any[];
+    total: number;
+    page: number;
+    pageSize: number;
+    totalPages: number;
+}
+
 // API客户端接口
 export interface ApiClient {
     uploadFile(file: File, onProgress?: (progressEvent: { loaded: number; total?: number }) => void): Promise<UploadResponse>;
@@ -106,6 +115,8 @@ export interface ApiClient {
     getFileDetail(fileId: string): Promise<FileDetailResponse>;
     downloadCleanData(jobId: string): Promise<Blob>;
     downloadExceptionData(jobId: string): Promise<Blob>;
+    getCleanDataPaginated(jobId: string, page: number, pageSize: number): Promise<PaginatedDataResponse>;
+    getExceptionDataPaginated(jobId: string, page: number, pageSize: number): Promise<PaginatedDataResponse>;
 }
 
 // 文件验证结果接口

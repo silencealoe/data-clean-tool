@@ -65,4 +65,8 @@ export const queryKeys = {
     downloads: ['downloads'] as const,
     downloadClean: (jobId: string) => [...queryKeys.downloads, 'clean', jobId] as const,
     downloadException: (jobId: string) => [...queryKeys.downloads, 'exception', jobId] as const,
+
+    // 数据查询相关
+    cleanData: (jobId: string, page: number, pageSize: number) => [...queryKeys.jobs, 'cleanData', jobId, page, pageSize] as const,
+    exceptionData: (jobId: string, page: number, pageSize: number) => [...queryKeys.jobs, 'exceptionData', jobId, page, pageSize] as const,
 } as const;

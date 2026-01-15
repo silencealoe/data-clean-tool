@@ -4,16 +4,18 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { DataCleaningController } from './data-cleaning.controller';
-import { FileRecord } from './entities';
+import { FileRecord, CleanData, ErrorLog } from './entities';
 import {
-  FileRecordService,
-  FileService,
-  DateCleanerService,
-  AddressCleanerService,
-  PhoneCleanerService,
-  ParserService,
-  DataCleanerService,
-  ExportService
+    FileRecordService,
+    FileService,
+    DateCleanerService,
+    AddressCleanerService,
+    PhoneCleanerService,
+    ParserService,
+    StreamParserService,
+    DataCleanerService,
+    ExportService,
+    DatabasePersistenceService
 } from './services';
 
 @Module({
@@ -34,7 +36,7 @@ import {
         username: configService.get<string>('DB_USERNAME', 'root'),
         password: configService.get<string>('DB_PASSWORD', 'password'),
         database: configService.get<string>('DB_DATABASE', 'data_cleaning_service'),
-        entities: [FileRecord],
+        entities: [FileRecord, CleanData, ErrorLog],
         synchronize: configService.get<boolean>('DB_SYNCHRONIZE', true),
         logging: configService.get<boolean>('DB_LOGGING', false),
         // Additional configuration for better performance and reliability
@@ -51,7 +53,7 @@ import {
     }),
 
     // Configure TypeORM for entities
-    TypeOrmModule.forFeature([FileRecord]),
+    TypeOrmModule.forFeature([FileRecord, CleanData, ErrorLog]),
   ],
   controllers: [AppController, DataCleaningController],
   providers: [
@@ -62,8 +64,10 @@ import {
     AddressCleanerService,
     PhoneCleanerService,
     ParserService,
+    StreamParserService,
     DataCleanerService,
-    ExportService
+    ExportService,
+    DatabasePersistenceService
   ],
 })
 export class AppModule { }

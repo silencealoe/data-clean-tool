@@ -476,7 +476,7 @@ describe('FileRecordService', () => {
                                 id: fc.uuid(),
                                 jobId: fc.uuid(),
                                 originalFileName: fc.string({ minLength: 1, maxLength: 100 }).map(s => s + '.xlsx'),
-                                fileSize: fc.integer({ min: 1, max: 10485760 }), // 1 byte to 10MB
+                                fileSize: fc.integer({ min: 1, max: 524288000 }), // 1 byte to 500MB
                                 fileType: fc.constantFrom('xlsx', 'xls'),
                                 mimeType: fc.constantFrom(
                                     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -575,7 +575,7 @@ describe('FileRecordService', () => {
                                 id: fc.uuid(),
                                 jobId: fc.uuid(),
                                 originalFileName: fc.string({ minLength: 1, maxLength: 100 }).map(s => s + '.xlsx'),
-                                fileSize: fc.integer({ min: 1, max: 10485760 }),
+                                fileSize: fc.integer({ min: 1, max: 524288000 }),
                                 fileType: fc.constantFrom('xlsx', 'xls'),
                                 mimeType: fc.constantFrom(
                                     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',

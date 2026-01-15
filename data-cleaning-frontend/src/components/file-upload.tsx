@@ -231,7 +231,7 @@ export function FileUpload({ className, onUploadSuccess, onUploadError }: FileUp
                         拖拽文件到此处，或点击选择文件
                     </p>
                     <p className="text-xs text-muted-foreground mb-6 transition-colors duration-300">
-                        支持 .xlsx、.xls 和 .csv 格式，文件大小不超过 10MB
+                        支持 .xlsx、.xls 和 .csv 格式，文件大小不超过 500MB
                     </p>
 
                     <input

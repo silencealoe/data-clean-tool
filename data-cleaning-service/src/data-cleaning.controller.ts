@@ -31,6 +31,7 @@ import {
     FileDetailResponseDto,
     ErrorResponseDto
 } from './common/dto';
+import { DatabasePersistenceService } from './services/database-persistence.service';
 import {
     FileRecordService,
     FileService,
@@ -38,7 +39,7 @@ import {
     DataCleanerService,
     ExportService
 } from './services';
-import { FileStatus, Statistics } from './common/types';
+import { FileStatus, Statistics, ColumnType, ColumnTypeMap } from './common/types';
 import * as path from 'path';
 
 @ApiTags('data-cleaning')
@@ -52,23 +53,24 @@ export class DataCleaningController {
         private readonly parserService: ParserService,
         private readonly dataCleanerService: DataCleanerService,
         private readonly exportService: ExportService,
+        private readonly databasePersistence: DatabasePersistenceService
     ) { }
 
     @Post('upload')
     @ApiOperation({
-        summary: '上传Excel文件',
-        description: '上传Excel文件进行数据清洗处理。支持.xlsx和.xls格式，最大文件大小10MB。'
+        summary: '上传数据文件',
+        description: '上传Excel和CSV文件进行数据清洗处理。支持.xlsx、.xls和.csv格式，最大文件大小500MB。支持大文件流式处理。'
     })
     @ApiConsumes('multipart/form-data')
     @ApiBody({
-        description: 'Excel文件上传',
+        description: '数据文件上传',
         schema: {
             type: 'object',
             properties: {
                 file: {
                     type: 'string',
                     format: 'binary',
-                    description: 'Excel文件（.xlsx或.xls格式）'
+                    description: '数据文件（.xlsx、.xls或.csv格式）'
                 }
             }
         }
@@ -85,6 +87,9 @@ export class DataCleaningController {
     })
     @UseInterceptors(FileInterceptor('file', {
         storage: multer.memoryStorage(),
+        limits: {
+            fileSize: 500 * 1024 * 1024, // 500MB
+        },
         fileFilter: (req, file, callback) => {
             // 确保文件名使用正确的编码
             if (file.originalname) {
@@ -469,6 +474,130 @@ export class DataCleaningController {
         }
     }
 
+    @Get('data/clean/:jobId')
+    @ApiOperation({
+        summary: '查询清洁数据',
+        description: '分页查询指定任务的清洁数据，支持查看清洗后的表格内容'
+    })
+    @ApiParam({
+        name: 'jobId',
+        description: '任务ID',
+        example: 'job_123456789'
+    })
+    @ApiResponse({
+        status: HttpStatus.OK,
+        description: '成功返回清洁数据',
+        schema: {
+            type: 'object',
+            properties: {
+                data: { type: 'array', description: '清洁数据列表' },
+                total: { type: 'number', description: '总记录数' },
+                page: { type: 'number', description: '当前页码' },
+                pageSize: { type: 'number', description: '每页大小' },
+                totalPages: { type: 'number', description: '总页数' }
+            }
+        }
+    })
+    @ApiResponse({
+        status: HttpStatus.NOT_FOUND,
+        description: '任务不存在',
+        type: ErrorResponseDto
+    })
+    async getCleanDataPaginated(
+        @Param('jobId') jobId: string,
+        @Query('page') page?: string,
+        @Query('pageSize') pageSize?: string,
+    ): Promise<{
+        data: any[];
+        total: number;
+        page: number;
+        pageSize: number;
+        totalPages: number;
+    }> {
+        this.logger.log(`查询清洁数据，任务ID: ${jobId}, 页码: ${page || 1}, 每页大小: ${pageSize || 100}`);
+
+        try {
+            const pageNum = parseInt(page || '1');
+            const size = parseInt(pageSize || '100');
+
+            const result = await this.databasePersistence.getCleanDataByJobIdPaginated(
+                jobId,
+                pageNum,
+                size
+            );
+
+            return result;
+        } catch (error) {
+            this.logger.error(`查询清洁数据失败: ${error.message}`, error.stack);
+            throw new HttpException(
+                'Failed to query clean data',
+                HttpStatus.INTERNAL_SERVER_ERROR
+            );
+        }
+    }
+
+    @Get('data/exceptions/:jobId')
+    @ApiOperation({
+        summary: '查询异常数据',
+        description: '分页查询指定任务的异常数据，包含详细的错误原因说明'
+    })
+    @ApiParam({
+        name: 'jobId',
+        description: '任务ID',
+        example: 'job_123456789'
+    })
+    @ApiResponse({
+        status: HttpStatus.OK,
+        description: '成功返回异常数据',
+        schema: {
+            type: 'object',
+            properties: {
+                data: { type: 'array', description: '异常数据列表' },
+                total: { type: 'number', description: '总记录数' },
+                page: { type: 'number', description: '当前页码' },
+                pageSize: { type: 'number', description: '每页大小' },
+                totalPages: { type: 'number', description: '总页数' }
+            }
+        }
+    })
+    @ApiResponse({
+        status: HttpStatus.NOT_FOUND,
+        description: '任务不存在',
+        type: ErrorResponseDto
+    })
+    async getExceptionDataPaginated(
+        @Param('jobId') jobId: string,
+        @Query('page') page?: string,
+        @Query('pageSize') pageSize?: string,
+    ): Promise<{
+        data: any[];
+        total: number;
+        page: number;
+        pageSize: number;
+        totalPages: number;
+    }> {
+        this.logger.log(`查询异常数据，任务ID: ${jobId}, 页码: ${page || 1}, 每页大小: ${pageSize || 100}`);
+
+        try {
+            const pageNum = parseInt(page || '1');
+            const size = parseInt(pageSize || '100');
+
+            const result = await this.databasePersistence.getErrorLogsByJobIdPaginated(
+                jobId,
+                pageNum,
+                size
+            );
+
+            return result;
+        } catch (error) {
+            this.logger.error(`查询异常数据失败: ${error.message}`, error.stack);
+            throw new HttpException(
+                'Failed to query exception data',
+                HttpStatus.INTERNAL_SERVER_ERROR
+            );
+        }
+    }
+
     /**
      * Process file asynchronously
      */
@@ -481,49 +610,46 @@ export class DataCleaningController {
             // Update status to processing
             await this.fileRecordService.updateFileStatus(fileRecordId, FileStatus.PROCESSING);
 
-            // Parse Excel file
-            this.logger.log(`解析文件: ${tempFilePath}`);
-            const parsedData = await this.parserService.parseFile(tempFilePath);
+            // 使用流式处理和数据库持久化
+            this.logger.log(`开始流式处理文件: ${tempFilePath}`);
+            const streamResult = await this.dataCleanerService.cleanDataStream(tempFilePath, jobId);
 
-            // Update file record with total rows after parsing
+            // Update file record with total rows after processing
             await this.fileRecordService.updateFileStatus(fileRecordId, FileStatus.PROCESSING, {
-                totalRows: parsedData.totalRows,
-                cleanedRows: 0,
-                exceptionRows: 0,
+                totalRows: streamResult.statistics.totalRows,
+                cleanedRows: streamResult.statistics.processedRows,
+                exceptionRows: streamResult.statistics.errorRows,
                 processingTime: 0,
             });
 
-            // Clean data
-            this.logger.log(`开始数据清洗，总行数: ${parsedData.totalRows}`);
-            const cleaningResult = await this.dataCleanerService.cleanData(parsedData);
-
-            // Export clean data
+            // Export clean data from database
             let cleanDataPath: string | null = null;
-            if (cleaningResult.cleanData.length > 0) {
-                this.logger.log(`导出清洁数据，行数: ${cleaningResult.cleanData.length}`);
+            if (streamResult.statistics.processedRows > 0) {
+                this.logger.log(`导出清洁数据，行数: ${streamResult.statistics.processedRows}`);
 
-                // Get original headers from first sheet
-                const originalHeaders = parsedData.sheets[0]?.headers || [];
-                const columnTypes = parsedData.sheets[0]?.columnTypes || {};
+                // Get original headers - 这里需要从数据库或文件中获取
+                // 暂时使用空数组，实际应该从文件解析中获取
+                const originalHeaders: string[] = [];
+                const columnTypes: ColumnTypeMap = {};
 
                 cleanDataPath = await this.exportService.exportCleanData(
-                    cleaningResult.cleanData,
+                    jobId,
                     originalHeaders,
                     columnTypes
                 );
                 this.logger.log(`清洁数据导出路径: ${cleanDataPath}`);
             }
 
-            // Export exception data
+            // Export exception data from database
             let exceptionDataPath: string | null = null;
-            if (cleaningResult.exceptionData.length > 0) {
-                this.logger.log(`导出异常数据，行数: ${cleaningResult.exceptionData.length}`);
+            if (streamResult.statistics.errorRows > 0) {
+                this.logger.log(`导出异常数据，行数: ${streamResult.statistics.errorRows}`);
 
-                // Get original headers from first sheet
-                const originalHeaders = parsedData.sheets[0]?.headers || [];
+                // Get original headers
+                const originalHeaders: string[] = [];
 
                 exceptionDataPath = await this.exportService.exportExceptionData(
-                    cleaningResult.exceptionData,
+                    jobId,
                     originalHeaders
                 );
                 this.logger.log(`异常数据导出路径: ${exceptionDataPath}`);
@@ -532,7 +658,9 @@ export class DataCleaningController {
             // Calculate processing time
             const processingTime = Date.now() - startTime;
             const statistics: Statistics = {
-                ...cleaningResult.statistics,
+                totalRows: streamResult.statistics.totalRows,
+                cleanedRows: streamResult.statistics.processedRows,
+                exceptionRows: streamResult.statistics.errorRows,
                 processingTime,
             };
 

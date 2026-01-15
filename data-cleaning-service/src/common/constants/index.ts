@@ -14,8 +14,8 @@ export const ALLOWED_MIME_TYPES = [
 // Allowed file extensions
 export const ALLOWED_EXTENSIONS = ['.xlsx', '.xls', '.csv'];
 
-// Default max file size (10MB)
-export const DEFAULT_MAX_FILE_SIZE = 10 * 1024 * 1024;
+// Default max file size (500MB for streaming support)
+export const DEFAULT_MAX_FILE_SIZE = 500 * 1024 * 1024;
 
 // Error codes
 export const ERROR_CODES = {

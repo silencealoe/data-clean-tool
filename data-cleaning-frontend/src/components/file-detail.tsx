@@ -19,6 +19,7 @@ import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 import { DownloadManager } from './download-manager';
+import { DataViewer } from './data-viewer';
 import { useFileDetail } from '../hooks/use-file-detail';
 import { formatFileSize } from '../lib/file-utils';
 import { cn } from '../lib/utils';
@@ -358,6 +359,11 @@ export function FileDetail({
                 cleanedRows={file.cleanedRows}
                 exceptionRows={file.exceptionRows}
             />
+
+            {/* 数据查看器 - 仅在完成状态显示 */}
+            {file.status === 'completed' && (
+                <DataViewer jobId={file.jobId} className="mt-6" />
+            )}
         </div>
     );
 }
