@@ -4,6 +4,8 @@ import { Upload, FileText, BarChart3, ArrowRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 
+
+
 /**
  * 主页组件
  * 显示服务信息和快速操作入口

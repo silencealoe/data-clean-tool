@@ -2,16 +2,23 @@
 
 ## 概述
 
-数据清洗服务是一个基于NestJS框架的RESTful API服务，用于处理Excel文件中的脏数据。系统采用模块化架构，将文件上传、数据解析、数据清洗、数据验证和文件导出等功能分离为独立的模块，确保代码的可维护性和可扩展性。
+数据清洗服务是一个基于NestJS框架的RESTful API服务，用于处理Excel和CSV文件中的脏数据。系统采用模块化架构和流式处理技术，支持大文件处理（>100MB，500万行）而不会内存溢出。清洗后的数据持久化到MySQL数据库，使用批量插入优化性能。
 
 核心技术栈：
 - **NestJS**: 后端框架，提供依赖注入和模块化架构
 - **Multer**: 处理multipart/form-data文件上传
-- **xlsx (SheetJS)**: Excel文件解析和生成
+- **xlsx (SheetJS)** 或 **exceljs**: Excel文件解析和生成（支持流式处理）
+- **csv-parser** 或 **fast-csv**: CSV文件流式解析
 - **class-validator**: 数据验证
-- **TypeORM**: ORM框架，用于数据库操作
-- **MySQL/PostgreSQL**: 关系型数据库，存储文件元数据和处理记录
+- **TypeORM**: ORM框架，用于数据库操作和批量插入
+- **MySQL**: 关系型数据库，存储清洁数据和错误日志
 - **address-parse** 或自定义正则: 中国地址解析
+
+核心特性：
+- **流式处理**: 逐行读取大文件，内存占用<500MB
+- **数据库持久化**: 清洁数据和错误日志分别存储到MySQL表
+- **批量插入**: 每1000条提交一次，100万条数据<60秒
+- **双格式支持**: 同时支持Excel和CSV文件
 
 ## 架构
 
@@ -19,30 +26,45 @@
 
 ```mermaid
 graph TB
-    Client[客户端] --> Controller[Upload Controller]
+    Client[客户端] --> Controller[Data Cleaning Controller]
     Controller --> FileService[File Service]
     Controller --> FileRecordService[File Record Service]
-    FileService --> ParserService[Parser Service]
-    ParserService --> CleanerService[Data Cleaner Service]
+    
+    FileService --> StreamParser[Stream Parser Service]
+    FileService --> CsvParser[CSV Parser Service]
+    
+    StreamParser --> CleanerService[Data Cleaner Service]
+    CsvParser --> CleanerService
+    
     CleanerService --> PhoneCleaner[Phone Cleaner]
     CleanerService --> DateCleaner[Date Cleaner]
     CleanerService --> AddressCleaner[Address Cleaner]
+    
+    CleanerService --> DbPersistence[Database Persistence Service]
+    DbPersistence --> Database[(MySQL数据库)]
+    
     CleanerService --> ExportService[Export Service]
     ExportService --> Client
     
     FileService --> Storage[(文件存储)]
     ExportService --> Storage
-    FileRecordService --> Database[(数据库)]
+    FileRecordService --> Database
+    
+    Database --> CleanDataTable[clean_data表]
+    Database --> ErrorLogsTable[error_logs表]
+    Database --> FileRecordsTable[file_records表]
 ```
 
 ### 模块划分
 
-1. **Upload Module**: 处理文件上传和验证
-2. **Parser Module**: 解析Excel文件内容
-3. **Cleaner Module**: 数据清洗核心逻辑
-4. **Export Module**: 生成和导出处理后的文件
-5. **File Record Module**: 管理文件记录和数据库操作
-6. **Common Module**: 共享工具和类型定义
+1. **Upload Module**: 处理文件上传和验证（支持Excel和CSV）
+2. **Stream Parser Module**: 流式解析大文件，避免内存溢出
+3. **CSV Parser Module**: 专门处理CSV文件解析
+4. **Cleaner Module**: 数据清洗核心逻辑
+5. **Database Persistence Module**: 批量插入数据到MySQL
+6. **Export Module**: 生成和导出处理后的文件
+7. **File Record Module**: 管理文件记录和数据库操作
+8. **Common Module**: 共享工具和类型定义
 
 ## 组件和接口
 
@@ -391,6 +413,116 @@ export class FileRecordService {
 }
 ```
 
+### 11. Stream Parser Service
+
+使用流式处理解析大文件，避免内存溢出。
+
+```typescript
+@Injectable()
+export class StreamParserService {
+  // 流式解析Excel文件
+  parseExcelStream(filePath: string, onRow: (row: RowData, rowNumber: number) => Promise<void>): Promise<ParseStats>
+  
+  // 流式解析CSV文件
+  parseCsvStream(filePath: string, onRow: (row: RowData, rowNumber: number) => Promise<void>): Promise<ParseStats>
+  
+  // 识别列类型
+  identifyColumnTypes(headers: string[], sampleRows: any[]): ColumnTypeMap
+}
+
+interface ParseStats {
+  totalRows: number;
+  processedRows: number;
+  errorRows: number;
+}
+```
+
+**流式处理策略**:
+- **Excel文件**: 使用`xlsx-stream-reader`或`exceljs`的流式API，逐行读取而不加载整个文件到内存
+- **CSV文件**: 使用`csv-parser`或`fast-csv`的流式API，逐行解析
+- **内存管理**: 每次只在内存中保留当前处理的行和少量缓冲区
+- **错误处理**: 单行错误不影响后续行的处理
+
+### 12. Database Persistence Service
+
+管理清洁数据和错误日志的数据库持久化，支持批量插入。
+
+```typescript
+@Injectable()
+export class DatabasePersistenceService {
+  // 批量插入清洁数据
+  batchInsertCleanData(data: CleanData[], batchSize?: number): Promise<BatchInsertResult>
+  
+  // 批量插入错误日志
+  batchInsertErrorLogs(logs: ErrorLog[], batchSize?: number): Promise<BatchInsertResult>
+  
+  // 查询任务的清洁数据
+  getCleanDataByJobId(jobId: string): Promise<CleanData[]>
+  
+  // 查询任务的错误日志
+  getErrorLogsByJobId(jobId: string): Promise<ErrorLog[]>
+  
+  // 验证数据完整性
+  verifyDataIntegrity(jobId: string, expectedTotal: number): Promise<IntegrityCheckResult>
+}
+
+interface BatchInsertResult {
+  successCount: number;
+  failureCount: number;
+  errors: BatchError[];
+}
+
+interface BatchError {
+  batchIndex: number;
+  error: string;
+  affectedRows: number;
+}
+
+interface IntegrityCheckResult {
+  isValid: boolean;
+  cleanDataCount: number;
+  errorLogCount: number;
+  totalCount: number;
+  expectedCount: number;
+  message: string;
+}
+```
+
+**批量插入策略**:
+- **批次大小**: 默认每批1000条记录
+- **事务管理**: 每批作为一个事务提交，失败时回滚当前批次
+- **错误处理**: 记录失败的批次信息，继续处理后续批次
+- **性能优化**: 使用TypeORM的`createQueryBuilder().insert().values()`进行批量插入
+- **内存控制**: 处理完一批后立即释放内存
+
+### 13. CSV Parser Service
+
+专门处理CSV文件的解析服务。
+
+```typescript
+@Injectable()
+export class CsvParserService {
+  // 解析CSV文件
+  parseCsvFile(filePath: string): Promise<ParsedData>
+  
+  // 流式解析CSV文件
+  parseCsvStream(filePath: string, onRow: (row: RowData, rowNumber: number) => Promise<void>): Promise<ParseStats>
+  
+  // 检测CSV编码
+  detectEncoding(filePath: string): Promise<string>
+  
+  // 检测CSV分隔符
+  detectDelimiter(filePath: string): Promise<string>
+}
+```
+
+**CSV处理特性**:
+- **编码检测**: 自动检测文件编码（UTF-8, GBK, GB2312等）
+- **分隔符检测**: 自动检测分隔符（逗号、分号、制表符等）
+- **引号处理**: 正确处理带引号的字段
+- **换行处理**: 处理字段内的换行符
+- **BOM处理**: 自动处理UTF-8 BOM标记
+
 ## 数据模型
 
 ### File Record Entity
@@ -469,34 +601,175 @@ export class FileRecord {
 }
 ```
 
+### Clean Data Entity
+
+存储清洗成功的数据记录。
+
+```typescript
+@Entity('clean_data')
+export class CleanData {
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
+
+  @Column()
+  jobId: string;
+
+  @Column()
+  rowNumber: number;
+
+  @Column({ nullable: true })
+  name: string;
+
+  @Column({ nullable: true })
+  phone: string;
+
+  @Column({ nullable: true, type: 'date' })
+  date: string;
+
+  @Column({ nullable: true })
+  province: string;
+
+  @Column({ nullable: true })
+  city: string;
+
+  @Column({ nullable: true })
+  district: string;
+
+  @Column({ nullable: true, type: 'text' })
+  addressDetail: string;
+
+  @Column({ type: 'json', nullable: true })
+  additionalFields: Record<string, any>;
+
+  @CreateDateColumn()
+  createdAt: Date;
+
+  @Index(['jobId'])
+  @Index(['rowNumber'])
+}
+```
+
+### Error Log Entity
+
+存储清洗失败的数据记录和错误信息。
+
+```typescript
+@Entity('error_logs')
+export class ErrorLog {
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
+
+  @Column()
+  jobId: string;
+
+  @Column()
+  rowNumber: number;
+
+  @Column({ type: 'json' })
+  originalData: Record<string, any>;
+
+  @Column({ type: 'json' })
+  errors: FieldError[];
+
+  @Column({ type: 'text' })
+  errorSummary: string;
+
+  @CreateDateColumn()
+  createdAt: Date;
+
+  @Index(['jobId'])
+  @Index(['rowNumber'])
+}
+
+interface FieldError {
+  field: string;
+  originalValue: any;
+  errorType: string;
+  errorMessage: string;
+}
+```
+
+### 数据库索引说明
+
+**file_records表索引**:
+- `status`: 用于按状态筛选文件
+- `uploadedAt`: 用于按时间范围查询
+- `jobId`: 用于快速查找特定任务
+
+**clean_data表索引**:
+- `jobId`: 用于查询特定任务的所有清洁数据
+- `rowNumber`: 用于按行号排序和查询
+
+**error_logs表索引**:
+- `jobId`: 用于查询特定任务的所有错误记录
+- `rowNumber`: 用于按行号排序和查询
+
 ### 数据流
+
+#### 流式处理数据流
 
 ```mermaid
 sequenceDiagram
     participant Client
     participant Controller
     participant FileService
-    participant ParserService
+    participant StreamParser
     participant CleanerService
+    participant DbPersistence
+    participant Database
     participant ExportService
     
-    Client->>Controller: POST /upload (Excel文件)
+    Client->>Controller: POST /upload (Excel/CSV文件)
     Controller->>FileService: 验证文件
     FileService-->>Controller: 验证结果
     Controller->>FileService: 保存临时文件
     FileService-->>Controller: 文件路径
-    Controller->>ParserService: 解析Excel
-    ParserService-->>Controller: ParsedData
-    Controller->>CleanerService: 清洗数据
-    CleanerService-->>Controller: CleaningResult
+    
+    Controller->>StreamParser: 开始流式解析
+    loop 逐行处理
+        StreamParser->>CleanerService: 处理单行数据
+        CleanerService-->>StreamParser: 清洗结果
+        StreamParser->>DbPersistence: 累积到批次
+        alt 达到批次大小(1000条)
+            DbPersistence->>Database: 批量插入clean_data/error_logs
+            Database-->>DbPersistence: 插入结果
+        end
+    end
+    StreamParser-->>Controller: 处理完成统计
+    
+    alt 剩余数据
+        DbPersistence->>Database: 插入剩余数据
+    end
+    
     Controller->>ExportService: 生成导出文件
+    ExportService->>Database: 查询clean_data
+    Database-->>ExportService: 清洁数据
+    ExportService->>Database: 查询error_logs
+    Database-->>ExportService: 错误日志
     ExportService-->>Controller: 文件路径
     Controller-->>Client: UploadResponse (jobId)
     
     Client->>Controller: GET /download/clean/:jobId
-    Controller->>ExportService: 读取清洁数据文件
+    Controller->>Database: 查询clean_data
+    Database-->>Controller: 清洁数据
+    Controller->>ExportService: 生成Excel
     ExportService-->>Controller: 文件流
     Controller-->>Client: Excel文件下载
+```
+
+#### 内存管理策略
+
+```mermaid
+graph LR
+    A[读取行] --> B{累积到批次}
+    B -->|未满1000条| C[继续读取]
+    B -->|达到1000条| D[批量插入数据库]
+    D --> E[清空批次缓冲区]
+    E --> C
+    C --> F{文件结束?}
+    F -->|否| A
+    F -->|是| G[插入剩余数据]
+    G --> H[完成]
 ```
 
 ## 正确性属性
@@ -585,6 +858,34 @@ sequenceDiagram
 *对于任何*有效的文件ID，详情查询应当返回完整的文件信息和处理统计数据（如果处理已完成）
 **验证需求: 8.4**
 
+### 属性 21: CSV文件接受
+*对于任何*有效的CSV文件，上传后系统应当成功存储并返回有效的jobId
+**验证需求: 1.2**
+
+### 属性 22: CSV解析完整性
+*对于任何*有效的CSV文件，解析后的数据行数应当等于原文件的数据行数（排除表头）
+**验证需求: 2.2**
+
+### 属性 23: 流式处理错误恢复
+*对于任何*在流式处理中遇到单行错误的文件，系统应当记录该错误并继续处理后续行，不中断整个处理流程
+**验证需求: 10.5**
+
+### 属性 24: 清洁数据数据库持久化
+*对于任何*清洗成功的数据行，应当能在MySQL的clean_data表中查询到包含所有清洗后字段和原始行号的完整记录
+**验证需求: 11.1, 11.3**
+
+### 属性 25: 错误日志数据库持久化
+*对于任何*清洗失败的数据行，应当能在MySQL的error_logs表中查询到包含行号、原始内容和失败原因的完整记录
+**验证需求: 11.2, 11.4**
+
+### 属性 26: 数据完整性不变量
+*对于任何*处理完成的文件，MySQL数据库中clean_data表的记录数加上error_logs表的记录数应当等于输入文件的总行数
+**验证需求: 11.5**
+
+### 属性 27: 批量插入成功计数
+*对于任何*批量插入操作，返回的成功插入记录数应当等于实际插入到数据库中的记录数
+**验证需求: 12.5**
+
 ## 错误处理
 
 ### 错误类型
@@ -596,8 +897,10 @@ sequenceDiagram
 
 2. **文件解析错误**
    - Excel文件损坏: `CORRUPTED_FILE`
-   - Excel文件为空: `EMPTY_FILE`
+   - CSV文件损坏: `CORRUPTED_CSV_FILE`
+   - 文件为空: `EMPTY_FILE`
    - 解析失败: `PARSE_FAILED`
+   - 编码检测失败: `ENCODING_DETECTION_FAILED`
 
 3. **数据清洗错误**
    - 字段类型识别失败: `TYPE_IDENTIFICATION_FAILED`
@@ -614,6 +917,14 @@ sequenceDiagram
 6. **数据库错误**
    - 记录不存在: `RECORD_NOT_FOUND`
    - 数据库操作失败: `DATABASE_ERROR`
+   - 批量插入失败: `BATCH_INSERT_FAILED`
+   - 事务回滚: `TRANSACTION_ROLLBACK`
+   - 数据完整性验证失败: `DATA_INTEGRITY_CHECK_FAILED`
+
+7. **流式处理错误**
+   - 内存溢出: `OUT_OF_MEMORY`
+   - 流处理中断: `STREAM_INTERRUPTED`
+   - 行处理失败: `ROW_PROCESSING_FAILED`
 
 ### 错误响应格式
 
@@ -671,36 +982,50 @@ it('should remove all non-digit characters from phone numbers', () => {
 ### 测试覆盖范围
 
 1. **文件上传测试**
-   - 单元测试: 测试特定文件类型（.xlsx, .xls, .pdf, .txt）
-   - 属性测试: 属性2（无效文件拒绝）、属性3（文件大小限制）
+   - 单元测试: 测试特定文件类型（.xlsx, .xls, .csv, .pdf, .txt）
+   - 属性测试: 属性2（无效文件拒绝）、属性3（文件大小限制）、属性21（CSV文件接受）
 
 2. **Excel解析测试**
    - 单元测试: 测试空文件、单工作表、多工作表
    - 属性测试: 属性4（解析完整性）、属性5（多工作表处理）
 
-3. **手机号清洗测试**
+3. **CSV解析测试**
+   - 单元测试: 测试不同编码（UTF-8, GBK）、不同分隔符（逗号、分号、制表符）
+   - 属性测试: 属性22（CSV解析完整性）
+
+4. **流式处理测试**
+   - 单元测试: 测试小文件、中等文件（10MB）、大文件（100MB）
+   - 属性测试: 属性23（错误恢复）
+   - 性能测试: 验证内存占用<500MB
+
+5. **手机号清洗测试**
    - 单元测试: 测试特定格式（"138 1234 5678", "138-1234-5678"）
    - 属性测试: 属性7（字符清洗）、属性8（长度验证）
 
-4. **日期清洗测试**
+6. **日期清洗测试**
    - 单元测试: 测试特定格式（"2024-01-15", "2024年1月15日"）
    - 属性测试: 属性9（格式标准化）、属性10（无效日期标记）
 
-5. **地址清洗测试**
+7. **地址清洗测试**
    - 单元测试: 测试特定地址（"北京市朝阳区", "广东省广州市天河区"）
    - 属性测试: 属性11（地址解析）、属性12（无效地址标记）
 
-6. **导出测试**
-   - 单元测试: 测试空数据导出、单行数据导出
+8. **数据库持久化测试**
+   - 单元测试: 测试单条插入、批量插入、事务回滚
+   - 属性测试: 属性24（清洁数据持久化）、属性25（错误日志持久化）、属性26（数据完整性不变量）、属性27（批量插入计数）
+   - 集成测试: 测试完整的流式处理+批量插入流程
+
+9. **导出测试**
+   - 单元测试: 测试空数据导出、单行数据导出、从数据库导出
    - 属性测试: 属性13（结构保持）、属性14（文件有效性）、属性15（异常数据完整性）
 
-7. **统计测试**
-   - 单元测试: 测试特定数据集的统计
-   - 属性测试: 属性16（统计报告完整性）
+10. **统计测试**
+    - 单元测试: 测试特定数据集的统计
+    - 属性测试: 属性16（统计报告完整性）
 
-8. **文件记录查询测试**
-   - 单元测试: 测试空列表、单条记录、分页
-   - 属性测试: 属性18（文件列表完整性）、属性19（筛选正确性）、属性20（详情查询有效性）
+11. **文件记录查询测试**
+    - 单元测试: 测试空列表、单条记录、分页
+    - 属性测试: 属性18（文件列表完整性）、属性19（筛选正确性）、属性20（详情查询有效性）
 
 ### 测试数据生成器
 
@@ -737,16 +1062,39 @@ const addressArbitrary = () => {
     fc.string()
   ).map(([p, c, d, detail]) => `${p}${c}${d}${detail}`);
 };
+
+// CSV行生成器
+const csvRowArbitrary = () => fc.record({
+  name: fc.string(),
+  phone: phoneNumberArbitrary(),
+  date: dateStringArbitrary(),
+  address: addressArbitrary(),
+});
+
+// 大文件生成器（用于性能测试）
+const largeCsvFileArbitrary = (rowCount: number) => {
+  return fc.array(csvRowArbitrary(), { minLength: rowCount, maxLength: rowCount });
+};
 ```
 
 ### 集成测试
 
-- 测试完整的数据处理流程：上传 → 解析 → 清洗 → 导出
-- 使用真实的Excel文件样本
+- 测试完整的数据处理流程：上传 → 流式解析 → 清洗 → 批量插入数据库 → 导出
+- 使用真实的Excel和CSV文件样本
 - 验证端到端的数据完整性
+- 验证数据库中的数据与输入文件一致
 
 ### 性能测试
 
-- 测试大文件处理（接近10MB限制）
-- 测试多行数据处理（10000+行）
-- 验证内存使用和处理时间在可接受范围内
+- 测试大文件处理（100MB+，500万行）
+- 测试流式处理的内存占用（应<500MB）
+- 测试批量插入性能（100万条数据应<60秒）
+- 测试并发处理多个文件
+- 使用性能监控工具（如Node.js的`process.memoryUsage()`）
+
+### 压力测试
+
+- 使用迭代需求文档中提供的50MB重复生成的大CSV文件
+- 验证系统不会出现`OutOfMemory`错误
+- 验证数据库中的记录总数等于CSV总行数
+- 验证处理时间在可接受范围内

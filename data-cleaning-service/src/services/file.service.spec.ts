@@ -14,7 +14,7 @@ describe('FileService', () => {
     const mockConfigService = {
         get: jest.fn((key: string, defaultValue?: any) => {
             const config = {
-                'MAX_FILE_SIZE': 10485760, // 10MB
+                'MAX_FILE_SIZE': 500 * 1024 * 1024, // 500MB
                 'TEMP_DIR': './temp'
             };
             return config[key] || defaultValue;
@@ -123,7 +123,7 @@ describe('FileService', () => {
                 originalname: 'test.xlsx',
                 encoding: '7bit',
                 mimetype: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                size: 20971520, // 20MB (exceeds 10MB limit)
+                size: 524288001, // 500MB + 1 byte (exceeds 500MB limit)
                 buffer: Buffer.from('test'),
                 destination: '',
                 filename: '',
@@ -207,7 +207,7 @@ describe('FileService', () => {
                         nonExcelMimeTypes,
                         nonExcelExtensions,
                         fileNameArbitrary,
-                        fc.integer({ min: 1, max: 10485760 }), // Valid file size
+                        fc.integer({ min: 1, max: 500 * 1024 * 1024 }), // Valid file size
                         (mimetype, extension, baseName, size) => {
                             const mockFile: Express.Multer.File = {
                                 fieldname: 'file',
@@ -250,7 +250,7 @@ describe('FileService', () => {
                         wrongMimeTypes,
                         excelExtensions,
                         fileNameArbitrary,
-                        fc.integer({ min: 1, max: 10485760 }),
+                        fc.integer({ min: 1, max: 500 * 1024 * 1024 }),
                         (mimetype, extension, baseName, size) => {
                             const mockFile: Express.Multer.File = {
                                 fieldname: 'file',
@@ -297,7 +297,7 @@ describe('FileService', () => {
                         excelMimeTypes,
                         wrongExtensions,
                         fileNameArbitrary,
-                        fc.integer({ min: 1, max: 10485760 }),
+                        fc.integer({ min: 1, max: 500 * 1024 * 1024 }),
                         (mimetype, extension, baseName, size) => {
                             const mockFile: Express.Multer.File = {
                                 fieldname: 'file',
@@ -338,10 +338,10 @@ describe('FileService', () => {
                     .filter(name => name.trim().length > 0) // Ensure non-empty after trimming
                     .map(name => name.replace(/[<>:"/\\|?*]/g, 'a') || 'testfile'); // Replace invalid chars, fallback to 'testfile'
 
-                // Generate file sizes that exceed the limit (10MB = 10485760 bytes)
+                // Generate file sizes that exceed the limit (500MB = 524288000 bytes)
                 const oversizedFileArbitrary = fc.integer({
-                    min: 10485761, // Just over the limit
-                    max: 50485760  // Up to ~50MB to test various oversized files
+                    min: 524288001, // Just over the limit
+                    max: 624288000  // Up to ~600MB to test various oversized files
                 });
 
                 fc.assert(
@@ -386,10 +386,10 @@ describe('FileService', () => {
                     .filter(name => name.trim().length > 0) // Ensure non-empty after trimming
                     .map(name => name.replace(/[<>:"/\\|?*]/g, 'a') || 'testfile'); // Replace invalid chars, fallback to 'testfile'
 
-                // Generate file sizes within the valid range (1 byte to 10MB)
+                // Generate file sizes within valid range (1 byte to 500MB)
                 const validSizeArbitrary = fc.integer({
                     min: 1,
-                    max: 10485760  // Exactly at the limit
+                    max: 524288000  // Exactly at the limit
                 });
 
                 fc.assert(
@@ -522,7 +522,7 @@ describe('FileService', () => {
             const config = service.getMulterStorageConfig();
 
             expect(config.storage).toBe('memory');
-            expect(config.limits.fileSize).toBe(10485760);
+            expect(config.limits.fileSize).toBe(524288000);
             expect(config.fileFilter).toBeDefined();
         });
     });

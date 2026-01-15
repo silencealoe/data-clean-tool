@@ -31,6 +31,25 @@ export class PhoneCleanerService {
             };
         }
 
+        // 检查原始格式的有效性，避免类似139-123-45678这样的错误格式
+        const validFormatPatterns = [
+            /^\d{11}$/,  // 11位连续数字
+            /^\d{3}-\d{4}-\d{4}$/,  // 139-1234-5678格式
+            /^\d{3}\s\d{4}\s\d{4}$/, // 139 1234 5678格式
+            /^\+86\d{11}$/,  // +8613912345678格式
+            /^\+86-\d{11}$/, // +86-13912345678格式
+            /^\+86\s\d{11}$/, // +86 13912345678格式
+            /^0\d{2,3}-\d{7,8}$/ // 010-12345678格式
+        ];
+
+        const hasValidFormat = validFormatPatterns.some(pattern => pattern.test(phoneStr));
+        if (!hasValidFormat) {
+            return {
+                success: false,
+                error: 'Invalid phone number format'
+            };
+        }
+
         // Remove all non-digit characters except + at the beginning
         let cleaned = phoneStr;
 
@@ -127,7 +146,9 @@ export class PhoneCleanerService {
 
         // Landline with area code: 10-12 digits (must start with 0)
         if (length >= 10 && length <= 12) {
-            return /^0\d{9,11}$/.test(phone);
+            // 进一步验证固定电话格式：必须以0开头，且不能是11位或12位的纯数字（可能是错误的手机号）
+            // 避免将类似13912345678（12位）这样的号码误识别为固定电话
+            return /^0\d{9,11}$/.test(phone) && !/^0?1\d{9,11}$/.test(phone);
         }
 
         return false;

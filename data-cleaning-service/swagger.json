@@ -27,12 +27,12 @@
     },
     "/api/data-cleaning/upload": {
       "post": {
-        "description": "上传Excel文件进行数据清洗处理。支持.xlsx和.xls格式，最大文件大小10MB。",
+        "description": "上传Excel和CSV文件进行数据清洗处理。支持.xlsx、.xls和.csv格式，最大文件大小500MB。支持大文件流式处理。",
         "operationId": "DataCleaningController_uploadFile",
         "parameters": [],
         "requestBody": {
           "required": true,
-          "description": "Excel文件上传",
+          "description": "数据文件上传",
           "content": {
             "multipart/form-data": {
               "schema": {
@@ -41,7 +41,7 @@
                   "file": {
                     "type": "string",
                     "format": "binary",
-                    "description": "Excel文件（.xlsx或.xls格式）"
+                    "description": "数据文件（.xlsx、.xls或.csv格式）"
                   }
                 }
               }
@@ -70,7 +70,7 @@
             }
           }
         },
-        "summary": "上传Excel文件",
+        "summary": "上传数据文件",
         "tags": [
           "data-cleaning"
         ]
@@ -333,6 +333,170 @@
           }
         },
         "summary": "下载异常数据",
+        "tags": [
+          "data-cleaning"
+        ]
+      }
+    },
+    "/api/data-cleaning/data/clean/{jobId}": {
+      "get": {
+        "description": "分页查询指定任务的清洁数据，支持查看清洗后的表格内容",
+        "operationId": "DataCleaningController_getCleanDataPaginated",
+        "parameters": [
+          {
+            "name": "jobId",
+            "required": true,
+            "in": "path",
+            "description": "任务ID",
+            "schema": {
+              "example": "job_123456789",
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功返回清洁数据",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "description": "清洁数据列表"
+                    },
+                    "total": {
+                      "type": "number",
+                      "description": "总记录数"
+                    },
+                    "page": {
+                      "type": "number",
+                      "description": "当前页码"
+                    },
+                    "pageSize": {
+                      "type": "number",
+                      "description": "每页大小"
+                    },
+                    "totalPages": {
+                      "type": "number",
+                      "description": "总页数"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "任务不存在",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "查询清洁数据",
+        "tags": [
+          "data-cleaning"
+        ]
+      }
+    },
+    "/api/data-cleaning/data/exceptions/{jobId}": {
+      "get": {
+        "description": "分页查询指定任务的异常数据，包含详细的错误原因说明",
+        "operationId": "DataCleaningController_getExceptionDataPaginated",
+        "parameters": [
+          {
+            "name": "jobId",
+            "required": true,
+            "in": "path",
+            "description": "任务ID",
+            "schema": {
+              "example": "job_123456789",
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功返回异常数据",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "description": "异常数据列表"
+                    },
+                    "total": {
+                      "type": "number",
+                      "description": "总记录数"
+                    },
+                    "page": {
+                      "type": "number",
+                      "description": "当前页码"
+                    },
+                    "pageSize": {
+                      "type": "number",
+                      "description": "每页大小"
+                    },
+                    "totalPages": {
+                      "type": "number",
+                      "description": "总页数"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "任务不存在",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "查询异常数据",
         "tags": [
           "data-cleaning"
         ]

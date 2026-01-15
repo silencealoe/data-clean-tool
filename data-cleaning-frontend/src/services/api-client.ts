@@ -205,6 +205,64 @@ class ApiClientImpl implements ApiClient {
 
         return response.data;
     }
+
+    /**
+     * 分页查询清洁数据
+     */
+    async getCleanDataPaginated(jobId: string, page: number = 1, pageSize: number = 100): Promise<{
+        data: any[];
+        total: number;
+        page: number;
+        pageSize: number;
+        totalPages: number;
+    }> {
+        const response = await this.client.get<{
+            data: any[];
+            total: number;
+            page: number;
+            pageSize: number;
+            totalPages: number;
+        }>(
+            `/api/data-cleaning/data/clean/${jobId}`,
+            {
+                params: {
+                    page,
+                    pageSize,
+                }
+            }
+        );
+
+        return response.data;
+    }
+
+    /**
+     * 分页查询异常数据
+     */
+    async getExceptionDataPaginated(jobId: string, page: number = 1, pageSize: number = 100): Promise<{
+        data: any[];
+        total: number;
+        page: number;
+        pageSize: number;
+        totalPages: number;
+    }> {
+        const response = await this.client.get<{
+            data: any[];
+            total: number;
+            page: number;
+            pageSize: number;
+            totalPages: number;
+        }>(
+            `/api/data-cleaning/data/exceptions/${jobId}`,
+            {
+                params: {
+                    page,
+                    pageSize,
+                }
+            }
+        );
+
+        return response.data;
+    }
 }
 
 // 创建API客户端实例

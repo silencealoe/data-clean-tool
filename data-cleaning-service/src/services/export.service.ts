@@ -9,6 +9,9 @@ import {
     ColumnType,
     ColumnTypeMap
 } from '../common/types';
+import { DatabasePersistenceService } from './database-persistence.service';
+import { CleanData } from '../entities/clean-data.entity';
+import { ErrorLog } from '../entities/error-log.entity';
 
 /**
  * Service for exporting cleaned and exception data to Excel files
@@ -18,65 +21,107 @@ import {
 export class ExportService {
     private readonly logger = new Logger(ExportService.name);
     private readonly exportDir = path.join(process.cwd(), 'exports');
+    private readonly PAGE_SIZE = 10000; // 分页大小，避免一次性加载大量数据
 
-    constructor() {
+    constructor(
+        private readonly databasePersistence: DatabasePersistenceService,
+    ) {
         this.ensureExportDirectory();
     }
 
     /**
-     * Export clean data to Excel file
-     * @param cleanData - Array of cleaned rows
-     * @param originalHeaders - Original column headers to maintain order
-     * @param columnTypes - Column type mapping for proper formatting
-     * @returns Promise<string> - Path to the generated Excel file
+     * Export clean data to Excel file from database
+     * @param jobId 任务ID
+     * @param originalHeaders 原始列头，用于保持顺序
+     * @param columnTypes 列类型映射，用于正确格式化
+     * @returns Promise<string> - 生成的Excel文件路径
      */
     async exportCleanData(
-        cleanData: CleanedRow[],
+        jobId: string,
         originalHeaders: string[],
         columnTypes: ColumnTypeMap
     ): Promise<string> {
-        this.logger.log(`开始导出清洁数据，共 ${cleanData.length} 行`);
+        this.logger.log(`开始从数据库导出清洁数据，任务ID: ${jobId}`);
+
+        // 从数据库读取清洁数据
+        const cleanData: CleanData[] = await this.databasePersistence.getCleanDataByJobId(jobId);
 
         if (cleanData.length === 0) {
             throw new Error('No clean data to export');
         }
 
-        // Prepare data for Excel export
-        const exportData = this.prepareCleanDataForExport(cleanData, originalHeaders, columnTypes);
+        // 转换为CleanedRow格式
+        const cleanedRows: CleanedRow[] = cleanData.map(row => ({
+            rowNumber: row.rowNumber,
+            originalData: {}, // 数据库中只存储清洗后的数据
+            cleanedData: this.cleanDataToRecord(row, originalHeaders),
+        }));
 
-        // Generate Excel file
+        // 准备导出数据
+        const exportData = this.prepareCleanDataForExport(cleanedRows, originalHeaders, columnTypes);
+
+        // 生成Excel文件
         const fileName = `clean_data_${Date.now()}.xlsx`;
         const filePath = await this.generateExcel(exportData.data, exportData.headers, fileName);
 
-        this.logger.log(`清洁数据导出完成: ${filePath}`);
+        this.logger.log(`清洁数据导出完成: ${filePath}, 共 ${cleanData.length} 行`);
         return filePath;
     }
 
     /**
-     * Export exception data to Excel file with error details
-     * @param exceptionData - Array of exception rows
-     * @param originalHeaders - Original column headers to maintain order
-     * @returns Promise<string> - Path to the generated Excel file
+     * Export exception data to Excel file from database with error details
+     * @param jobId 任务ID
+     * @param originalHeaders 原始列头，用于保持顺序
+     * @returns Promise<string> - 生成的Excel文件路径
      */
     async exportExceptionData(
-        exceptionData: ExceptionRow[],
+        jobId: string,
         originalHeaders: string[]
     ): Promise<string> {
-        this.logger.log(`开始导出异常数据，共 ${exceptionData.length} 行`);
+        this.logger.log(`开始从数据库导出异常数据，任务ID: ${jobId}`);
 
-        if (exceptionData.length === 0) {
+        // 从数据库读取错误日志
+        const errorLogs: ErrorLog[] = await this.databasePersistence.getErrorLogsByJobId(jobId);
+
+        if (errorLogs.length === 0) {
             throw new Error('No exception data to export');
         }
 
-        // Prepare data for Excel export
-        const exportData = this.prepareExceptionDataForExport(exceptionData, originalHeaders);
+        // 转换为ExceptionRow格式
+        const exceptionRows: ExceptionRow[] = errorLogs.map(log => ({
+            rowNumber: log.rowNumber,
+            originalData: log.originalData as Record<string, any>,
+            errors: log.errors as any[],
+        }));
 
-        // Generate Excel file
+        // 准备导出数据
+        const exportData = this.prepareExceptionDataForExport(exceptionRows, originalHeaders);
+
+        // 生成Excel文件
         const fileName = `exception_data_${Date.now()}.xlsx`;
         const filePath = await this.generateExcel(exportData.data, exportData.headers, fileName);
 
-        this.logger.log(`异常数据导出完成: ${filePath}`);
+        this.logger.log(`异常数据导出完成: ${filePath}, 共 ${errorLogs.length} 行`);
         return filePath;
+    }
+
+    /**
+     * 将CleanData实体转换为Record格式
+     * @param cleanData CleanData实体
+     * @param headers 列头
+     * @returns Record格式的数据
+     */
+    private cleanDataToRecord(cleanData: CleanData, headers: string[]): Record<string, any> {
+        const record: Record<string, any> = {};
+        
+        for (const header of headers) {
+            // 从CleanData实体中提取对应的字段
+            if (cleanData[header as keyof CleanData] !== undefined) {
+                record[header] = cleanData[header as keyof CleanData];
+            }
+        }
+        
+        return record;
     }
 
     /**
@@ -279,7 +324,7 @@ export class ExportService {
 
     /**
      * Get file stream for download
-     * @param filePath - Path to the file
+     * @param filePath - Path to file
      * @returns Promise<Buffer> - File buffer for streaming
      */
     async getFileBuffer(filePath: string): Promise<Buffer> {
@@ -294,7 +339,7 @@ export class ExportService {
 
     /**
      * Delete export file
-     * @param filePath - Path to the file to delete
+     * @param filePath - Path to file to delete
      */
     async deleteFile(filePath: string): Promise<void> {
         try {

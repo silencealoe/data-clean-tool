@@ -1,5 +1,5 @@
 import { createBrowserRouter, Navigate } from 'react-router-dom';
-import { HomePage, UploadPage, FilesPage, FileDetailPage } from '@/pages';
+import { HomePage, UploadPage, FilesPage, FileDetailPage, DataTablePage } from '@/pages';
 import { Layout } from '@/components/layout';
 
 /**
@@ -25,6 +25,10 @@ export const router = createBrowserRouter([
             {
                 path: 'files/:fileId',
                 element: <FileDetailPage />
+            },
+            {
+                path: 'data-table/:jobId',
+                element: <DataTablePage />
             },
             {
                 path: '*',

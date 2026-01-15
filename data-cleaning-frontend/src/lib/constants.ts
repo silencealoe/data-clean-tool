@@ -7,7 +7,7 @@ export const APP_NAME = import.meta.env.VITE_APP_NAME || '数据清洗服务'
 export const APP_DESCRIPTION = import.meta.env.VITE_APP_DESCRIPTION || '专业的Excel数据清洗和标准化服务'
 
 // File Upload Configuration
-export const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
+export const MAX_FILE_SIZE = 500 * 1024 * 1024 // 500MB - 支持大文件流式处理
 export const ALLOWED_FILE_TYPES = ['.xlsx', '.xls', '.csv']
 export const ALLOWED_MIME_TYPES = [
     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',

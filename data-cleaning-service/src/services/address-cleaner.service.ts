@@ -71,11 +71,27 @@ export class AddressCleanerService {
             };
         }
 
-        // Validate that we have at least province and city (or municipality)
+        // Validate that we have at least province and city (or municipality), and detailed address
         if (!components.province || (!components.city && !this.municipalities.includes(components.province))) {
             return {
                 success: false,
                 error: 'Address is incomplete - missing required province/city information'
+            };
+        }
+
+        // Require detailed address information (not just province and city)
+        if (!components.detail || components.detail.trim() === '') {
+            return {
+                success: false,
+                error: 'Address is incomplete - missing detailed address information'
+            };
+        }
+
+        // For non-municipalities, also require district information if possible
+        if (!this.municipalities.includes(components.province) && (!components.district || components.district.trim() === '')) {
+            return {
+                success: false,
+                error: 'Address is incomplete - missing district information'
             };
         }
 
