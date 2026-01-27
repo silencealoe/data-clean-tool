@@ -19,7 +19,10 @@ import { WorkerPoolService } from './worker-pool.service';
 import { ResultCollectorService } from './result-collector.service';
 import { ProgressTrackerService } from './progress-tracker.service';
 import { PerformanceMonitorService } from './performance-monitor.service';
+<<<<<<< HEAD
 import { ResourceMonitorService } from './resource-monitor.service';
+=======
+>>>>>>> ab86e763c74c7b40cbdb2a6db4337c0e9dcaa40a
 import {
   ProcessingConfig,
   ProcessingResult,
@@ -31,15 +34,23 @@ import {
 @Injectable()
 export class ParallelProcessingManagerService {
   private readonly logger = new Logger(ParallelProcessingManagerService.name);
+<<<<<<< HEAD
 
+=======
+  
+>>>>>>> ab86e763c74c7b40cbdb2a6db4337c0e9dcaa40a
   // 组件依赖
   private readonly chunkSplitter: ChunkSplitterService;
   private readonly workerPool: WorkerPoolService;
   private readonly resultCollector: ResultCollectorService;
   private readonly progressTracker: ProgressTrackerService;
   private readonly performanceMonitor: PerformanceMonitorService;
+<<<<<<< HEAD
   private readonly resourceMonitor: ResourceMonitorService;
 
+=======
+  
+>>>>>>> ab86e763c74c7b40cbdb2a6db4337c0e9dcaa40a
   // 处理状态
   private isProcessing: boolean = false;
   private currentJobId: string = '';
@@ -50,7 +61,10 @@ export class ParallelProcessingManagerService {
     this.resultCollector = new ResultCollectorService();
     this.progressTracker = new ProgressTrackerService();
     this.performanceMonitor = new PerformanceMonitorService();
+<<<<<<< HEAD
     this.resourceMonitor = new ResourceMonitorService();
+=======
+>>>>>>> ab86e763c74c7b40cbdb2a6db4337c0e9dcaa40a
   }
 
   /**
@@ -68,6 +82,7 @@ export class ParallelProcessingManagerService {
     if (this.isProcessing) {
       throw new Error('并行处理管理器已在运行中');
     }
+<<<<<<< HEAD
 
     this.isProcessing = true;
     this.currentJobId = jobId;
@@ -78,11 +93,24 @@ export class ParallelProcessingManagerService {
       `开始并行处理: jobId=${jobId}, 文件=${filePath}, 工作线程数=${config.workerCount}`,
     );
 
+=======
+    
+    this.isProcessing = true;
+    this.currentJobId = jobId;
+    
+    const startTime = Date.now();
+    
+    this.logger.log(
+      `开始并行处理: jobId=${jobId}, 文件=${filePath}, 工作线程数=${config.workerCount}`,
+    );
+    
+>>>>>>> ab86e763c74c7b40cbdb2a6db4337c0e9dcaa40a
     try {
       // 1. 分割文件成数据块
       this.logger.log('步骤 1/5: 分割文件...');
       const chunks = await this.chunkSplitter.splitFile(filePath, config.workerCount);
       const totalRows = chunks.reduce((sum, chunk) => sum + chunk.rowCount, 0);
+<<<<<<< HEAD
 
       this.logger.log(
         `文件已分割: 总行数=${totalRows}, 数据块数=${chunks.length}`,
@@ -92,6 +120,17 @@ export class ParallelProcessingManagerService {
       this.logger.log('步骤 2/5: 初始化组件...');
       await this.initializeComponents(jobId, totalRows, config);
 
+=======
+      
+      this.logger.log(
+        `文件已分割: 总行数=${totalRows}, 数据块数=${chunks.length}`,
+      );
+      
+      // 2. 初始化所有组件
+      this.logger.log('步骤 2/5: 初始化组件...');
+      await this.initializeComponents(jobId, totalRows, config);
+      
+>>>>>>> ab86e763c74c7b40cbdb2a6db4337c0e9dcaa40a
       // 3. 创建工作线程任务
       this.logger.log('步骤 3/5: 创建工作线程任务...');
       const tasks: WorkerTask[] = chunks.map((chunk, index) => ({
@@ -103,6 +142,7 @@ export class ParallelProcessingManagerService {
         jobId,
         timeoutMs: config.timeoutMs,
       }));
+<<<<<<< HEAD
 
       // 4. 并行执行所有任务
       this.logger.log('步骤 4/5: 执行并行处理...');
@@ -130,6 +170,35 @@ export class ParallelProcessingManagerService {
         `并行处理失败: ${error.message}. 已处理 ${partialResult.successCount + partialResult.errorCount}/${partialResult.totalRecords} 行`,
       );
 
+=======
+      
+      // 4. 并行执行所有任务
+      this.logger.log('步骤 4/5: 执行并行处理...');
+      await this.executeTasksInParallel(tasks, config.timeoutMs);
+      
+      // 5. 收集结果并生成报告
+      this.logger.log('步骤 5/5: 收集结果...');
+      const result = this.collectFinalResult();
+      
+      const processingTimeMs = Date.now() - startTime;
+      
+      this.logger.log(
+        `并行处理完成: 总记录=${result.totalRecords}, 成功=${result.successCount}, 错误=${result.errorCount}, 耗时=${processingTimeMs}ms`,
+      );
+      
+      return result;
+      
+    } catch (error) {
+      this.logger.error(`并行处理失败: ${error.message}`, error.stack);
+      
+      // 尝试收集部分结果
+      const partialResult = this.collectPartialResult();
+      
+      throw new Error(
+        `并行处理失败: ${error.message}. 已处理 ${partialResult.successCount + partialResult.errorCount}/${partialResult.totalRecords} 行`,
+      );
+      
+>>>>>>> ab86e763c74c7b40cbdb2a6db4337c0e9dcaa40a
     } finally {
       // 清理资源
       await this.cleanup();
@@ -145,6 +214,7 @@ export class ParallelProcessingManagerService {
     totalRows: number,
     config: ProcessingConfig,
   ): Promise<void> {
+<<<<<<< HEAD
     // 配置并启动资源监控
     this.resourceMonitor.configureLimits({
       maxMemoryMB: 1800, // 默认最大内存 1800MB
@@ -164,11 +234,23 @@ export class ParallelProcessingManagerService {
     // 初始化结果收集器
     this.resultCollector.initialize(config.workerCount, totalRows);
 
+=======
+    // 初始化工作线程池
+    await this.workerPool.initialize(config.workerCount);
+    
+    // 初始化结果收集器
+    this.resultCollector.initialize(config.workerCount, totalRows);
+    
+>>>>>>> ab86e763c74c7b40cbdb2a6db4337c0e9dcaa40a
     // 初始化进度跟踪器
     if (config.enableProgressTracking) {
       this.progressTracker.initialize(totalRows, config.workerCount);
     }
+<<<<<<< HEAD
 
+=======
+    
+>>>>>>> ab86e763c74c7b40cbdb2a6db4337c0e9dcaa40a
     // 启动性能监控
     if (config.enablePerformanceMonitoring) {
       this.performanceMonitor.startMonitoring(
@@ -176,7 +258,11 @@ export class ParallelProcessingManagerService {
         config.performanceSampleInterval || 1000,
       );
     }
+<<<<<<< HEAD
 
+=======
+    
+>>>>>>> ab86e763c74c7b40cbdb2a6db4337c0e9dcaa40a
     this.logger.log('所有组件已初始化');
   }
 
@@ -187,6 +273,7 @@ export class ParallelProcessingManagerService {
     tasks: WorkerTask[],
     timeoutMs: number,
   ): Promise<void> {
+<<<<<<< HEAD
     const taskPromises: Promise<void>[] = [];
 
     // 逐个启动任务，检查资源限制
@@ -230,11 +317,27 @@ export class ParallelProcessingManagerService {
     // 检查是否有任务失败
     const failedTasks = results.filter(r => r.status === 'rejected');
 
+=======
+    const taskPromises = tasks.map(task => 
+      this.executeTaskWithMonitoring(task, timeoutMs)
+    );
+    
+    // 等待所有任务完成（或超时）
+    const results = await Promise.allSettled(taskPromises);
+    
+    // 检查是否有任务失败
+    const failedTasks = results.filter(r => r.status === 'rejected');
+    
+>>>>>>> ab86e763c74c7b40cbdb2a6db4337c0e9dcaa40a
     if (failedTasks.length > 0) {
       this.logger.warn(
         `${failedTasks.length}/${tasks.length} 个工作线程任务失败`,
       );
+<<<<<<< HEAD
 
+=======
+      
+>>>>>>> ab86e763c74c7b40cbdb2a6db4337c0e9dcaa40a
       // 记录失败详情
       failedTasks.forEach((result, index) => {
         if (result.status === 'rejected') {
@@ -243,7 +346,11 @@ export class ParallelProcessingManagerService {
           );
         }
       });
+<<<<<<< HEAD
 
+=======
+      
+>>>>>>> ab86e763c74c7b40cbdb2a6db4337c0e9dcaa40a
       // 如果所有任务都失败，抛出错误
       if (failedTasks.length === tasks.length) {
         throw new Error('所有工作线程任务都失败了');
@@ -261,7 +368,11 @@ export class ParallelProcessingManagerService {
     this.logger.log(
       `启动 Worker ${task.workerId}: 行 ${task.startRow}-${task.startRow + task.rowCount - 1}`,
     );
+<<<<<<< HEAD
 
+=======
+    
+>>>>>>> ab86e763c74c7b40cbdb2a6db4337c0e9dcaa40a
     try {
       // 设置超时
       const timeoutPromise = new Promise<never>((_, reject) => {
@@ -269,6 +380,7 @@ export class ParallelProcessingManagerService {
           reject(new Error(`Worker ${task.workerId} 超时 (${timeoutMs}ms)`));
         }, timeoutMs);
       });
+<<<<<<< HEAD
 
       // 执行任务
       const taskPromise = this.workerPool.executeTask(task);
@@ -283,6 +395,22 @@ export class ParallelProcessingManagerService {
         `Worker ${task.workerId} 完成: 成功=${result.successCount}, 错误=${result.errorCount}, 耗时=${result.processingTimeMs}ms`,
       );
 
+=======
+      
+      // 执行任务
+      const taskPromise = this.workerPool.executeTask(task);
+      
+      // 竞速：任务完成 vs 超时
+      const result = await Promise.race([taskPromise, timeoutPromise]);
+      
+      // 记录结果
+      this.resultCollector.addResult(result);
+      
+      this.logger.log(
+        `Worker ${task.workerId} 完成: 成功=${result.successCount}, 错误=${result.errorCount}, 耗时=${result.processingTimeMs}ms`,
+      );
+      
+>>>>>>> ab86e763c74c7b40cbdb2a6db4337c0e9dcaa40a
     } catch (error) {
       this.logger.error(
         `Worker ${task.workerId} 失败: ${error.message}`,
@@ -297,10 +425,17 @@ export class ParallelProcessingManagerService {
   private collectFinalResult(): ProcessingResult {
     // 获取聚合结果
     const result = this.resultCollector.getFinalResult();
+<<<<<<< HEAD
 
     // 停止性能监控并获取报告
     const performanceReport = this.performanceMonitor.stopMonitoring();
 
+=======
+    
+    // 停止性能监控并获取报告
+    const performanceReport = this.performanceMonitor.stopMonitoring();
+    
+>>>>>>> ab86e763c74c7b40cbdb2a6db4337c0e9dcaa40a
     // 添加性能摘要到结果
     result.performanceSummary = {
       avgCpuUsage: performanceReport.avgCpuUsage,
@@ -310,7 +445,11 @@ export class ParallelProcessingManagerService {
       avgThroughput: performanceReport.avgThroughput,
       peakThroughput: performanceReport.peakThroughput,
     };
+<<<<<<< HEAD
 
+=======
+    
+>>>>>>> ab86e763c74c7b40cbdb2a6db4337c0e9dcaa40a
     return result;
   }
 
@@ -319,9 +458,15 @@ export class ParallelProcessingManagerService {
    */
   private collectPartialResult(): ProcessingResult {
     this.logger.warn('收集部分结果...');
+<<<<<<< HEAD
 
     const partialResult = this.resultCollector.getPartialResult();
 
+=======
+    
+    const partialResult = this.resultCollector.getPartialResult();
+    
+>>>>>>> ab86e763c74c7b40cbdb2a6db4337c0e9dcaa40a
     // 尝试停止性能监控
     try {
       const performanceReport = this.performanceMonitor.stopMonitoring();
@@ -336,7 +481,11 @@ export class ParallelProcessingManagerService {
     } catch (error) {
       this.logger.warn('无法获取性能报告');
     }
+<<<<<<< HEAD
 
+=======
+    
+>>>>>>> ab86e763c74c7b40cbdb2a6db4337c0e9dcaa40a
     return partialResult;
   }
 
@@ -345,6 +494,7 @@ export class ParallelProcessingManagerService {
    */
   private async cleanup(): Promise<void> {
     this.logger.log('清理资源...');
+<<<<<<< HEAD
 
     try {
       // 停止资源监控
@@ -357,6 +507,17 @@ export class ParallelProcessingManagerService {
       this.resultCollector.reset();
       this.progressTracker.reset();
 
+=======
+    
+    try {
+      // 终止工作线程池
+      await this.workerPool.terminate();
+      
+      // 重置组件
+      this.resultCollector.reset();
+      this.progressTracker.reset();
+      
+>>>>>>> ab86e763c74c7b40cbdb2a6db4337c0e9dcaa40a
     } catch (error) {
       this.logger.error(`清理资源失败: ${error.message}`);
     }
@@ -370,7 +531,11 @@ export class ParallelProcessingManagerService {
     if (!this.isProcessing) {
       return 0;
     }
+<<<<<<< HEAD
 
+=======
+    
+>>>>>>> ab86e763c74c7b40cbdb2a6db4337c0e9dcaa40a
     return this.progressTracker.getOverallProgress();
   }
 
@@ -382,7 +547,11 @@ export class ParallelProcessingManagerService {
     if (!this.isProcessing) {
       return null;
     }
+<<<<<<< HEAD
 
+=======
+    
+>>>>>>> ab86e763c74c7b40cbdb2a6db4337c0e9dcaa40a
     try {
       return this.performanceMonitor.getCurrentMetrics();
     } catch (error) {
@@ -398,7 +567,11 @@ export class ParallelProcessingManagerService {
     if (!this.isProcessing) {
       return null;
     }
+<<<<<<< HEAD
 
+=======
+    
+>>>>>>> ab86e763c74c7b40cbdb2a6db4337c0e9dcaa40a
     return this.progressTracker.getProgressStats();
   }
 
@@ -407,6 +580,7 @@ export class ParallelProcessingManagerService {
    */
   async shutdown(): Promise<void> {
     this.logger.log('关闭并行处理管理器...');
+<<<<<<< HEAD
 
     if (this.isProcessing) {
       this.logger.warn('处理正在进行中，强制关闭...');
@@ -417,6 +591,18 @@ export class ParallelProcessingManagerService {
     this.isProcessing = false;
     this.currentJobId = '';
 
+=======
+    
+    if (this.isProcessing) {
+      this.logger.warn('处理正在进行中，强制关闭...');
+    }
+    
+    await this.cleanup();
+    
+    this.isProcessing = false;
+    this.currentJobId = '';
+    
+>>>>>>> ab86e763c74c7b40cbdb2a6db4337c0e9dcaa40a
     this.logger.log('并行处理管理器已关闭');
   }
 
@@ -431,7 +617,10 @@ export class ParallelProcessingManagerService {
     resultCollectorStatus: any;
     progressTrackerStatus: any;
     performanceMonitorStatus: any;
+<<<<<<< HEAD
     resourceMonitorStatus: any;
+=======
+>>>>>>> ab86e763c74c7b40cbdb2a6db4337c0e9dcaa40a
   } {
     return {
       isProcessing: this.isProcessing,
@@ -441,11 +630,15 @@ export class ParallelProcessingManagerService {
       resultCollectorStatus: this.resultCollector.getStatus(),
       progressTrackerStatus: this.progressTracker.getStatus(),
       performanceMonitorStatus: this.performanceMonitor.getStatus(),
+<<<<<<< HEAD
       resourceMonitorStatus: this.resourceMonitor.getStatus(),
+=======
+>>>>>>> ab86e763c74c7b40cbdb2a6db4337c0e9dcaa40a
     };
   }
 
   /**
+<<<<<<< HEAD
    * 获取资源使用情况
    * @returns 当前资源使用情况
    */
@@ -454,6 +647,8 @@ export class ParallelProcessingManagerService {
   }
 
   /**
+=======
+>>>>>>> ab86e763c74c7b40cbdb2a6db4337c0e9dcaa40a
    * 处理工作线程消息（用于进度和性能监控）
    */
   handleWorkerMessage(message: WorkerToMainMessage): void {
@@ -466,16 +661,28 @@ export class ParallelProcessingManagerService {
           message.payload.totalRows,
         );
         break;
+<<<<<<< HEAD
 
+=======
+        
+>>>>>>> ab86e763c74c7b40cbdb2a6db4337c0e9dcaa40a
       case 'METRICS':
         // 记录性能指标
         this.performanceMonitor.recordWorkerMetrics(message.payload);
         break;
+<<<<<<< HEAD
 
       case 'COMPLETE':
         // 工作线程完成（已在 executeTaskWithMonitoring 中处理）
         break;
 
+=======
+        
+      case 'COMPLETE':
+        // 工作线程完成（已在 executeTaskWithMonitoring 中处理）
+        break;
+        
+>>>>>>> ab86e763c74c7b40cbdb2a6db4337c0e9dcaa40a
       case 'ERROR':
         // 工作线程错误（已在 executeTaskWithMonitoring 中处理）
         this.logger.error(

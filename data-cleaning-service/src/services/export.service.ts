@@ -91,12 +91,16 @@ export class ExportService {
         const exceptionRows: ExceptionRow[] = errorLogs.map(log => ({
             rowNumber: log.rowNumber,
             originalData: log.originalData as Record<string, any>,
+<<<<<<< HEAD
             errors: [{
                 field: 'multiple',
                 originalValue: log.originalData,
                 errorType: 'validation',
                 errorMessage: log.errors, // errors 现在是字符串
             }],
+=======
+            errors: log.errors as any[],
+>>>>>>> ab86e763c74c7b40cbdb2a6db4337c0e9dcaa40a
         }));
 
         // 准备导出数据
@@ -118,14 +122,22 @@ export class ExportService {
      */
     private cleanDataToRecord(cleanData: CleanData, headers: string[]): Record<string, any> {
         const record: Record<string, any> = {};
+<<<<<<< HEAD
 
+=======
+        
+>>>>>>> ab86e763c74c7b40cbdb2a6db4337c0e9dcaa40a
         for (const header of headers) {
             // 从CleanData实体中提取对应的字段
             if (cleanData[header as keyof CleanData] !== undefined) {
                 record[header] = cleanData[header as keyof CleanData];
             }
         }
+<<<<<<< HEAD
 
+=======
+        
+>>>>>>> ab86e763c74c7b40cbdb2a6db4337c0e9dcaa40a
         return record;
     }
 

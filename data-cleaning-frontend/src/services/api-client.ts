@@ -263,6 +263,7 @@ class ApiClientImpl implements ApiClient {
 
         return response.data;
     }
+<<<<<<< HEAD
 
     /**
      * 查询处理进度
@@ -363,6 +364,8 @@ class ApiClientImpl implements ApiClient {
 
         return response.data;
     }
+=======
+>>>>>>> ab86e763c74c7b40cbdb2a6db4337c0e9dcaa40a
 }
 
 // 创建API客户端实例

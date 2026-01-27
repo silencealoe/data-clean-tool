@@ -17,6 +17,7 @@ import { DateCleanerService } from './date-cleaner.service';
 import { AddressCleanerService } from './address-cleaner.service';
 import { StreamParserService, StreamStatistics } from './stream-parser.service';
 import { DatabasePersistenceService } from './database-persistence.service';
+<<<<<<< HEAD
 import { ParallelProcessingManagerService } from './parallel/parallel-processing-manager.service';
 import { workerThreadsConfig, shouldUseParallelProcessing } from '../config/worker-threads.config';
 import { ProcessingConfig } from './parallel/types';
@@ -25,6 +26,9 @@ import { StrategyRegistrationService } from './rule-engine/strategy-registration
 import { ConfigurationManagerService } from './rule-engine/configuration-manager.service';
 import * as path from 'path';
 import * as fs from 'fs';
+=======
+import * as path from 'path';
+>>>>>>> ab86e763c74c7b40cbdb2a6db4337c0e9dcaa40a
 
 /**
  * 批次配置
@@ -33,6 +37,7 @@ import * as fs from 'fs';
 const BATCH_SIZE = 5000; // 优化：从2000增加到5000，减少数据库连接次数
 
 /**
+<<<<<<< HEAD
  * 规则引擎配置
  * 控制是否启用新的规则引擎
  */
@@ -64,11 +69,14 @@ enum MigrationMode {
 const MIGRATION_MODE = (process.env.MIGRATION_MODE as MigrationMode) || MigrationMode.GRADUAL;
 
 /**
+=======
+>>>>>>> ab86e763c74c7b40cbdb2a6db4337c0e9dcaa40a
  * 流式清洗结果接口
  */
 export interface StreamCleaningResult {
     jobId: string;
     statistics: StreamStatistics;
+<<<<<<< HEAD
     performanceMetrics?: PerformanceMetrics;  // 可选：性能指标（仅并行处理时提供）
 }
 
@@ -85,6 +93,8 @@ export interface PerformanceMetrics {
     avgThroughput?: number;                     // 平均吞吐量（行/秒）
     peakThroughput?: number;                    // 峰值吞吐量（行/秒）
     processingTimeMs?: number;                  // 处理时间（毫秒）
+=======
+>>>>>>> ab86e763c74c7b40cbdb2a6db4337c0e9dcaa40a
 }
 
 /**
@@ -101,6 +111,7 @@ export class DataCleanerService {
         private readonly addressCleaner: AddressCleanerService,
         private readonly streamParser: StreamParserService,
         private readonly databasePersistence: DatabasePersistenceService,
+<<<<<<< HEAD
         private readonly parallelProcessingManager: ParallelProcessingManagerService,
         private readonly ruleEngine: RuleEngineService,
         private readonly strategyRegistration: StrategyRegistrationService,
@@ -124,6 +135,9 @@ export class DataCleanerService {
             this.logger.error('Configuration manager initialization failed:', error);
         });
     }
+=======
+    ) { }
+>>>>>>> ab86e763c74c7b40cbdb2a6db4337c0e9dcaa40a
 
     /**
      * Clean all data from parsed Excel file
@@ -190,12 +204,16 @@ export class DataCleanerService {
 
     /**
      * 流式清洗数据（用于大文件）
+<<<<<<< HEAD
      * 根据配置和文件大小自动选择并行或顺序处理
+=======
+>>>>>>> ab86e763c74c7b40cbdb2a6db4337c0e9dcaa40a
      * @param filePath 文件路径
      * @param jobId 任务ID
      * @returns StreamCleaningResult 包含统计信息
      */
     async cleanDataStream(filePath: string, jobId: string): Promise<StreamCleaningResult> {
+<<<<<<< HEAD
         this.logger.log(`开始数据清洗任务: ${jobId}, 文件: ${filePath}`);
 
         // 检查文件是否存在
@@ -352,6 +370,9 @@ export class DataCleanerService {
      */
     private async cleanDataStreamSequential(filePath: string, jobId: string): Promise<StreamCleaningResult> {
         this.logger.log(`开始顺序流式数据清洗任务: ${jobId}, 文件: ${filePath}`);
+=======
+        this.logger.log(`开始流式数据清洗任务: ${jobId}, 文件: ${filePath}`);
+>>>>>>> ab86e763c74c7b40cbdb2a6db4337c0e9dcaa40a
 
         // 初始化批次
         let cleanBatch: any[] = [];
@@ -422,7 +443,11 @@ export class DataCleanerService {
                                 jobId,
                                 rowNumber: cleanedRow.rowNumber,
                                 originalData: cleanedRow.originalData,
+<<<<<<< HEAD
                                 errors: JSON.stringify(cleanedRow.errors),
+=======
+                                errors: cleanedRow.errors,
+>>>>>>> ab86e763c74c7b40cbdb2a6db4337c0e9dcaa40a
                                 errorSummary,
                             });
                         }
@@ -499,7 +524,11 @@ export class DataCleanerService {
                                 jobId,
                                 rowNumber: cleanedRow.rowNumber,
                                 originalData: cleanedRow.originalData,
+<<<<<<< HEAD
                                 errors: JSON.stringify(cleanedRow.errors),
+=======
+                                errors: cleanedRow.errors,
+>>>>>>> ab86e763c74c7b40cbdb2a6db4337c0e9dcaa40a
                                 errorSummary,
                             });
                         }
@@ -550,7 +579,11 @@ export class DataCleanerService {
             const avgSpeed = totalRows / totalTime;
 
             this.logger.log(
+<<<<<<< HEAD
                 `顺序流式数据清洗完成: ${jobId}, ` +
+=======
+                `流式数据清洗完成: ${jobId}, ` +
+>>>>>>> ab86e763c74c7b40cbdb2a6db4337c0e9dcaa40a
                 `总行数: ${statistics.totalRows.toLocaleString()}, ` +
                 `清洁数据: ${statistics.processedRows.toLocaleString()}行, ` +
                 `异常数据: ${statistics.errorRows.toLocaleString()}行, ` +
@@ -558,6 +591,7 @@ export class DataCleanerService {
                 `平均速度: ${avgSpeed.toFixed(0)}行/秒`
             );
 
+<<<<<<< HEAD
             // 构建返回结果
             const streamResult: StreamCleaningResult = {
                 jobId,
@@ -576,11 +610,20 @@ export class DataCleanerService {
             return streamResult;
         } catch (error) {
             this.logger.error(`顺序流式数据清洗失败: ${error.message}`, error.stack);
+=======
+            return {
+                jobId,
+                statistics,
+            };
+        } catch (error) {
+            this.logger.error(`流式数据清洗失败: ${error.message}`, error.stack);
+>>>>>>> ab86e763c74c7b40cbdb2a6db4337c0e9dcaa40a
             throw error;
         }
     }
 
     /**
+<<<<<<< HEAD
      * Clean a single row of data using the rule engine (new approach)
      * @param row - Row data to clean
      * @param columnTypes - Column type mapping for the row
@@ -625,6 +668,9 @@ export class DataCleanerService {
 
     /**
      * Clean a single row of data with migration mode support
+=======
+     * Clean a single row of data
+>>>>>>> ab86e763c74c7b40cbdb2a6db4337c0e9dcaa40a
      * @param row - Row data to clean
      * @param columnTypes - Column type mapping for the row
      * @returns Cleaned row with original data, cleaned data, and any errors
@@ -1189,7 +1235,11 @@ export class DataCleanerService {
             rowNumber,
             name: cleanedData['姓名'] || cleanedData['name'] || cleanedData['名字'] || null,
             phone: cleanedData['手机号'] || cleanedData['手机号码'] || cleanedData['phone'] || cleanedData['电话'] || null,
+<<<<<<< HEAD
             hireDate: cleanedData['日期'] || cleanedData['入职日期'] || cleanedData['date'] || cleanedData['时间'] || null,
+=======
+            date: cleanedData['日期'] || cleanedData['入职日期'] || cleanedData['date'] || cleanedData['时间'] || null,
+>>>>>>> ab86e763c74c7b40cbdb2a6db4337c0e9dcaa40a
             province: cleanedData['省'] || cleanedData['province'] || null,
             city: cleanedData['市'] || cleanedData['city'] || null,
             district: cleanedData['区'] || cleanedData['district'] || null,

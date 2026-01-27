@@ -501,6 +501,7 @@
           "data-cleaning"
         ]
       }
+<<<<<<< HEAD
     },
     "/api/data-cleaning/progress/{jobId}": {
       "get": {
@@ -1019,6 +1020,8 @@
           "rule-configuration"
         ]
       }
+=======
+>>>>>>> ab86e763c74c7b40cbdb2a6db4337c0e9dcaa40a
     }
   },
   "info": {

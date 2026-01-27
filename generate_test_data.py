@@ -137,11 +137,21 @@ def generate_date():
     
     return random.choice(formats)(target_date)
 
+<<<<<<< HEAD
 # 生成100万条数据
 total_rows = 1000000  # 100万条
 
 print(f"开始生成测试数据文件...")
 print(f"目标行数: {total_rows:,} 行")
+=======
+# 计算需要多少行数据才能达到 50M
+target_size = 50 * 1024 * 1024  # 50MB
+avg_row_size = 200  # 估算每行大约 200 字节
+total_rows = int(target_size / avg_row_size * 3)  # 乘以3以确保达到目标大小
+
+print(f"开始生成 {target_size / (1024 * 1024):.1f}MB 的测试数据文件...")
+print(f"预计生成约 {total_rows:,} 行数据")
+>>>>>>> ab86e763c74c7b40cbdb2a6db4337c0e9dcaa40a
 
 output_file = 'testdoc/large_test_data.csv'
 

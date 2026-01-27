@@ -38,11 +38,19 @@
   - 实现消息监听器（处理 START, TERMINATE 消息）
   - 实现 CSV 行范围读取逻辑
   - 集成现有的数据验证服务
+<<<<<<< HEAD
 - [x] 4.2 实现批量数据库操作
   - 实现批量插入清洗数据（批次大小 10000）
   - 实现批量插入错误日志
   - 使用数据库事务保证一致性
 - [x] 4.3 实现进度报告
+=======
+- [ ] 4.2 实现批量数据库操作 f
+  - 实现批量插入清洗数据（批次大小 10000）
+  - 实现批量插入错误日志
+  - 使用数据库事务保证一致性
+- [ ] 4.3 实现进度报告f
+>>>>>>> ab86e763c74c7b40cbdb2a6db4337c0e9dcaa40a
   - 定期发送 PROGRESS 消息到主线程
   - 包含已处理行数和百分比
 - [ ] 4.4 为 Worker 编写集成测试
@@ -172,6 +180,7 @@
 ## 阶段 4: 服务集成
 
 ### 11. 集成到 DataCleanerService
+<<<<<<< HEAD
 - [x] 11.1 修改 `src/services/data-cleaner.service.ts`
   - 注入 ParallelProcessingManager
   - 添加配置检查逻辑
@@ -180,6 +189,16 @@
   - 如果 `enableParallelProcessing == true` 且 `rowCount > minRecordsForParallel`，使用并行处理
   - 否则使用现有顺序处理
 - [x] 11.3 保持 API 响应格式兼容
+=======
+- [ ] 11.1 修改 `src/services/data-cleaner.service.ts`
+  - 注入 ParallelProcessingManager
+  - 添加配置检查逻辑
+  - 实现并行/顺序处理切换
+- [ ] 11.2 实现处理逻辑选择
+  - 如果 `enableParallelProcessing == true` 且 `rowCount > minRecordsForParallel`，使用并行处理
+  - 否则使用现有顺序处理
+- [ ] 11.3 保持 API 响应格式兼容
+>>>>>>> ab86e763c74c7b40cbdb2a6db4337c0e9dcaa40a
   - 确保并行处理返回相同格式的结果
   - 添加性能指标到响应（可选字段）
 - [ ] 11.4 为集成编写测试
@@ -187,6 +206,7 @@
   - 测试向后兼容性（属性 10）
 
 ### 12. 更新 API 端点
+<<<<<<< HEAD
 - [x] 12.1 添加进度查询端点
   - `GET /api/data-cleaning/progress/:jobId`
   - 返回当前处理进度
@@ -194,6 +214,15 @@
   - `GET /api/data-cleaning/metrics/:jobId`
   - 返回实时性能指标（CPU、内存、吞吐量）
 - [x] 12.3 添加性能报告端点
+=======
+- [ ] 12.1 添加进度查询端点
+  - `GET /api/data-cleaning/progress/:jobId`
+  - 返回当前处理进度
+- [ ] 12.2 添加性能指标查询端点
+  - `GET /api/data-cleaning/metrics/:jobId`
+  - 返回实时性能指标（CPU、内存、吞吐量）
+- [ ] 12.3 添加性能报告端点
+>>>>>>> ab86e763c74c7b40cbdb2a6db4337c0e9dcaa40a
   - `GET /api/data-cleaning/report/:jobId`
   - 返回完整的性能报告
 - [ ] 12.4 更新处理结果响应

@@ -31,6 +31,7 @@ export class CleanData {
     @Column({ type: 'varchar', length: 50, nullable: true })
     phone: string;
 
+<<<<<<< HEAD
     @Column({
         type: 'varchar',
         length: 50,
@@ -39,6 +40,10 @@ export class CleanData {
         collation: 'utf8mb4_unicode_ci'
     })
     hireDate: string;
+=======
+    @Column({ type: 'date', nullable: true })
+    date: string;
+>>>>>>> ab86e763c74c7b40cbdb2a6db4337c0e9dcaa40a
 
     @Column({
         type: 'varchar',

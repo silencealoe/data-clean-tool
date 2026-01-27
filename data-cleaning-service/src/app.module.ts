@@ -4,6 +4,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { DataCleaningController } from './data-cleaning.controller';
+<<<<<<< HEAD
 import { RuleConfigController } from './rule-config.controller';
 import { FileRecord, CleanData, ErrorLog } from './entities';
 import {
@@ -23,6 +24,20 @@ import {
   ConfigValidatorService,
   StrategyFactoryService,
   StrategyRegistrationService
+=======
+import { FileRecord, CleanData, ErrorLog } from './entities';
+import {
+    FileRecordService,
+    FileService,
+    DateCleanerService,
+    AddressCleanerService,
+    PhoneCleanerService,
+    ParserService,
+    StreamParserService,
+    DataCleanerService,
+    ExportService,
+    DatabasePersistenceService
+>>>>>>> ab86e763c74c7b40cbdb2a6db4337c0e9dcaa40a
 } from './services';
 import { ConfigurationManagerService } from './services/rule-engine/configuration-manager.service';
 import { StrategyCacheService } from './services/rule-engine/strategy-cache.service';
@@ -87,6 +102,7 @@ import { ResourceMonitorService } from './services/parallel/resource-monitor.ser
     StreamParserService,
     DataCleanerService,
     ExportService,
+<<<<<<< HEAD
     DatabasePersistenceService,
     // Rule Engine Services
     RuleEngineService,
@@ -107,6 +123,9 @@ import { ResourceMonitorService } from './services/parallel/resource-monitor.ser
     ProgressTrackerService,
     PerformanceMonitorService,
     ResourceMonitorService,
+=======
+    DatabasePersistenceService
+>>>>>>> ab86e763c74c7b40cbdb2a6db4337c0e9dcaa40a
   ],
 })
 export class AppModule { }

@@ -239,7 +239,11 @@ export class DatabasePersistenceService {
      * @returns 分页结果
      */
     async getErrorLogsByJobIdPaginated(jobId: string, page: number = 1, pageSize: number = 100): Promise<{
+<<<<<<< HEAD
         data: any[];
+=======
+        data: ErrorLog[];
+>>>>>>> ab86e763c74c7b40cbdb2a6db4337c0e9dcaa40a
         total: number;
         page: number;
         pageSize: number;
@@ -248,7 +252,11 @@ export class DatabasePersistenceService {
         this.logger.log(`Querying error logs for job: ${jobId}, page: ${page}, pageSize: ${pageSize}`);
 
         try {
+<<<<<<< HEAD
             const [rawData, total] = await this.errorLogRepository.findAndCount({
+=======
+            const [data, total] = await this.errorLogRepository.findAndCount({
+>>>>>>> ab86e763c74c7b40cbdb2a6db4337c0e9dcaa40a
                 where: { jobId },
                 order: { rowNumber: 'ASC' },
                 skip: (page - 1) * pageSize,
@@ -257,6 +265,7 @@ export class DatabasePersistenceService {
 
             const totalPages = Math.ceil(total / pageSize);
 
+<<<<<<< HEAD
             // 结构化错误数据，解析JSON字符串为可读对象
             const data = rawData.map(errorLog => {
                 let structuredErrors;
@@ -290,6 +299,8 @@ export class DatabasePersistenceService {
                 };
             });
 
+=======
+>>>>>>> ab86e763c74c7b40cbdb2a6db4337c0e9dcaa40a
             this.logger.log(`Found ${data.length} error log records for job: ${jobId}, total: ${total}`);
 
             return {
@@ -306,6 +317,7 @@ export class DatabasePersistenceService {
     }
 
     /**
+<<<<<<< HEAD
      * 从错误数据中提取结构化的错误详情
      * @param errors 错误数据
      * @returns 结构化的错误详情
@@ -394,6 +406,8 @@ export class DatabasePersistenceService {
     }
 
     /**
+=======
+>>>>>>> ab86e763c74c7b40cbdb2a6db4337c0e9dcaa40a
      * 验证数据完整性
      * @param jobId 任务ID
      * @param expectedTotal 期望的总行数

@@ -23,9 +23,12 @@ import {
   WorkerMetrics,
 } from '../services/parallel/types';
 
+<<<<<<< HEAD
 // 数据库插入批量大小（固定值，独立于任务配置）
 const DB_BATCH_SIZE = 10000;  // 增加到10000，减少事务次数
 
+=======
+>>>>>>> ab86e763c74c7b40cbdb2a6db4337c0e9dcaa40a
 // 工作线程状态
 let isTerminating = false;
 let processedRows = 0;
@@ -77,7 +80,11 @@ async function main() {
  */
 async function handleStartMessage(task: WorkerTask): Promise<void> {
   console.log(`Worker ${task.workerId} 开始处理任务: 行 ${task.startRow}-${task.startRow + task.rowCount - 1}`);
+<<<<<<< HEAD
 
+=======
+  
+>>>>>>> ab86e763c74c7b40cbdb2a6db4337c0e9dcaa40a
   startTime = Date.now();
   baselineCpuUsage = process.cpuUsage();
   processedRows = 0;
@@ -89,6 +96,7 @@ async function handleStartMessage(task: WorkerTask): Promise<void> {
 
   try {
     // 连接数据库
+<<<<<<< HEAD
     console.log(`Worker ${task.workerId} 开始连接数据库`);
     const dbConnectStart = Date.now();
     const dataSource = await connectDatabase(task);
@@ -102,6 +110,18 @@ async function handleStartMessage(task: WorkerTask): Promise<void> {
     const disconnectStart = Date.now();
     await dataSource.destroy();
     console.log(`Worker ${task.workerId} 数据库断开完成，耗时: ${Date.now() - disconnectStart}ms`);
+=======
+    const dataSource = await connectDatabase(task);
+
+    // 处理数据
+    await processChunk(task, dataSource);
+
+    // 断开数据库连接
+    await dataSource.destroy();
+
+    // 停止性能监控
+    stopPerformanceMonitoring();
+>>>>>>> ab86e763c74c7b40cbdb2a6db4337c0e9dcaa40a
 
     // 发送完成消息
     const processingTimeMs = Date.now() - startTime;
@@ -113,7 +133,11 @@ async function handleStartMessage(task: WorkerTask): Promise<void> {
     };
 
     sendCompleteMessage(result);
+<<<<<<< HEAD
     console.log(`Worker ${task.workerId} 完成任务: 成功 ${successCount}, 错误 ${errorCount}, 总耗时 ${processingTimeMs}ms`);
+=======
+    console.log(`Worker ${task.workerId} 完成任务: 成功 ${successCount}, 错误 ${errorCount}, 耗时 ${processingTimeMs}ms`);
+>>>>>>> ab86e763c74c7b40cbdb2a6db4337c0e9dcaa40a
   } catch (error) {
     stopPerformanceMonitoring();
     console.error(`Worker ${task.workerId} 处理失败:`, error);
@@ -149,7 +173,11 @@ async function connectDatabase(task: WorkerTask): Promise<DataSource> {
 
   await dataSource.initialize();
   console.log(`Worker ${task.workerId} 数据库连接成功`);
+<<<<<<< HEAD
 
+=======
+  
+>>>>>>> ab86e763c74c7b40cbdb2a6db4337c0e9dcaa40a
   return dataSource;
 }
 
@@ -157,7 +185,11 @@ async function connectDatabase(task: WorkerTask): Promise<DataSource> {
  * 处理数据块
  */
 async function processChunk(task: WorkerTask, dataSource: DataSource): Promise<void> {
+<<<<<<< HEAD
   const { filePath, startRow, rowCount, jobId, workerId } = task;
+=======
+  const { filePath, startRow, rowCount, batchSize, jobId, workerId } = task;
+>>>>>>> ab86e763c74c7b40cbdb2a6db4337c0e9dcaa40a
 
   let cleanBatch: any[] = [];
   let errorBatch: any[] = [];
@@ -166,7 +198,10 @@ async function processChunk(task: WorkerTask, dataSource: DataSource): Promise<v
 
   // 创建文件流
   const fileStream = fs.createReadStream(filePath);
+<<<<<<< HEAD
 
+=======
+>>>>>>> ab86e763c74c7b40cbdb2a6db4337c0e9dcaa40a
   const rl = readline.createInterface({
     input: fileStream,
     crlfDelay: Infinity,
@@ -193,7 +228,11 @@ async function processChunk(task: WorkerTask, dataSource: DataSource): Promise<v
       if (actualRowNumber >= startRow && actualRowNumber < startRow + rowCount) {
         // 解析 CSV 行
         const rowData = parseCsvLine(line);
+<<<<<<< HEAD
 
+=======
+        
+>>>>>>> ab86e763c74c7b40cbdb2a6db4337c0e9dcaa40a
         // 清洗数据
         const cleanedRow = cleanRow(rowData, actualRowNumber, jobId);
 
@@ -208,13 +247,22 @@ async function processChunk(task: WorkerTask, dataSource: DataSource): Promise<v
         rowsInRange++;
         processedRows++;
 
+<<<<<<< HEAD
         // 批量插入（使用固定的DB_BATCH_SIZE，更频繁的插入）
         if (cleanBatch.length >= DB_BATCH_SIZE) {
+=======
+        // 批量插入
+        if (cleanBatch.length >= batchSize) {
+>>>>>>> ab86e763c74c7b40cbdb2a6db4337c0e9dcaa40a
           await batchInsertCleanData(dataSource, cleanBatch);
           cleanBatch = [];
         }
 
+<<<<<<< HEAD
         if (errorBatch.length >= DB_BATCH_SIZE) {
+=======
+        if (errorBatch.length >= batchSize) {
+>>>>>>> ab86e763c74c7b40cbdb2a6db4337c0e9dcaa40a
           await batchInsertErrorLogs(dataSource, errorBatch);
           errorBatch = [];
         }
@@ -247,6 +295,7 @@ async function processChunk(task: WorkerTask, dataSource: DataSource): Promise<v
     rl.close();
     fileStream.destroy();
   }
+<<<<<<< HEAD
 
   // 停止性能监控（在批量插入前停止，避免显示误导性的指标）
   console.log(`Worker ${workerId} 停止性能监控`);
@@ -268,6 +317,8 @@ async function processChunk(task: WorkerTask, dataSource: DataSource): Promise<v
 
   const insertTime = Date.now() - insertStart;
   console.log(`Worker ${workerId} 所有数据插入完成，耗时: ${insertTime}ms`);
+=======
+>>>>>>> ab86e763c74c7b40cbdb2a6db4337c0e9dcaa40a
 }
 
 /**
@@ -277,6 +328,7 @@ function parseCsvLine(line: string): Record<string, any> {
   // 简单的 CSV 解析（处理逗号分隔）
   // 注意：这是简化版本，实际应该使用专业的 CSV 解析库
   const values = line.split(',').map(v => v.trim().replace(/^"|"$/g, ''));
+<<<<<<< HEAD
 
   // CSV 列顺序：姓名,手机号码,地址,入职日期
   return {
@@ -284,10 +336,20 @@ function parseCsvLine(line: string): Record<string, any> {
     phone: values[1] || '',
     address: values[2] || '',
     hireDate: values[3] || '',
+=======
+  
+  // 假设列顺序：姓名,手机号,日期,地址
+  return {
+    name: values[0] || '',
+    phone: values[1] || '',
+    date: values[2] || '',
+    address: values[3] || '',
+>>>>>>> ab86e763c74c7b40cbdb2a6db4337c0e9dcaa40a
   };
 }
 
 /**
+<<<<<<< HEAD
  * 清洗日期
  * 支持多种日期格式，统一转换为标准格式
  */
@@ -521,6 +583,8 @@ function parseAddress(address: string): {
 }
 
 /**
+=======
+>>>>>>> ab86e763c74c7b40cbdb2a6db4337c0e9dcaa40a
  * 清洗单行数据
  */
 function cleanRow(
@@ -538,11 +602,19 @@ function cleanRow(
     errors.push('姓名不能为空');
   }
 
+<<<<<<< HEAD
   // 验证和清洗手机号
   if (rowData.phone) {
     const cleanedPhone = cleanPhoneNumber(rowData.phone);
     if (cleanedPhone) {
       cleanedData.phone = cleanedPhone;
+=======
+  // 验证手机号
+  if (rowData.phone) {
+    const phoneRegex = /^1[3-9]\d{9}$/;
+    if (phoneRegex.test(rowData.phone)) {
+      cleanedData.phone = rowData.phone;
+>>>>>>> ab86e763c74c7b40cbdb2a6db4337c0e9dcaa40a
     } else {
       errors.push('手机号格式不正确');
     }
@@ -550,6 +622,7 @@ function cleanRow(
     errors.push('手机号不能为空');
   }
 
+<<<<<<< HEAD
   // 验证和清洗入职日期
   if (rowData.hireDate) {
     const cleanedDate = cleanHireDate(rowData.hireDate);
@@ -566,6 +639,16 @@ function cleanRow(
     cleanedData.city = addressParts.city;
     cleanedData.district = addressParts.district;
     cleanedData.addressDetail = addressParts.detail;
+=======
+  // 验证日期
+  if (rowData.date) {
+    cleanedData.date = rowData.date; // 简化处理
+  }
+
+  // 验证地址
+  if (rowData.address) {
+    cleanedData.address = rowData.address;
+>>>>>>> ab86e763c74c7b40cbdb2a6db4337c0e9dcaa40a
   }
 
   if (errors.length === 0) {
@@ -583,11 +666,15 @@ function cleanRow(
       error: {
         jobId,
         rowNumber,
+<<<<<<< HEAD
         // 只存储关键字段，不存储完整的 originalData
         originalData: {
           phone: rowData.phone || '',
           name: rowData.name || '',
         },
+=======
+        originalData: JSON.stringify(rowData),
+>>>>>>> ab86e763c74c7b40cbdb2a6db4337c0e9dcaa40a
         errors: errors.join('; '),
         errorSummary: errors.join('; '),
       },
@@ -597,7 +684,10 @@ function cleanRow(
 
 /**
  * 批量插入清洗数据
+<<<<<<< HEAD
  * 使用事务和分批插入优化性能
+=======
+>>>>>>> ab86e763c74c7b40cbdb2a6db4337c0e9dcaa40a
  */
 async function batchInsertCleanData(
   dataSource: DataSource,
@@ -605,6 +695,7 @@ async function batchInsertCleanData(
 ): Promise<void> {
   if (records.length === 0) return;
 
+<<<<<<< HEAD
   // 手动转义字符串中的单引号和反斜杠
   const escapeString = (str: string): string => {
     if (!str) return '';
@@ -675,11 +766,28 @@ async function batchInsertCleanData(
   } finally {
     await queryRunner.release();
   }
+=======
+  const values = records.map(r => 
+    `('${r.jobId}', ${r.rowNumber}, ${dataSource.driver.escape(r.name)}, ` +
+    `${dataSource.driver.escape(r.phone)}, ${dataSource.driver.escape(r.date || '')}, ` +
+    `${dataSource.driver.escape(r.address || '')})`
+  ).join(',');
+
+  const query = `
+    INSERT INTO clean_data (jobId, rowNumber, name, phone, date, addressDetail)
+    VALUES ${values}
+  `;
+
+  await dataSource.query(query);
+>>>>>>> ab86e763c74c7b40cbdb2a6db4337c0e9dcaa40a
 }
 
 /**
  * 批量插入错误日志
+<<<<<<< HEAD
  * 使用事务和分批插入优化性能
+=======
+>>>>>>> ab86e763c74c7b40cbdb2a6db4337c0e9dcaa40a
  */
 async function batchInsertErrorLogs(
   dataSource: DataSource,
@@ -687,6 +795,7 @@ async function batchInsertErrorLogs(
 ): Promise<void> {
   if (records.length === 0) return;
 
+<<<<<<< HEAD
   // 手动转义字符串中的单引号和反斜杠
   const escapeString = (str: string): string => {
     if (!str) return '';
@@ -745,6 +854,19 @@ async function batchInsertErrorLogs(
   } finally {
     await queryRunner.release();
   }
+=======
+  const values = records.map(r =>
+    `('${r.jobId}', ${r.rowNumber}, ${dataSource.driver.escape(r.originalData)}, ` +
+    `${dataSource.driver.escape(r.errors)}, ${dataSource.driver.escape(r.errorSummary)})`
+  ).join(',');
+
+  const query = `
+    INSERT INTO error_log (jobId, rowNumber, originalData, errors, errorSummary)
+    VALUES ${values}
+  `;
+
+  await dataSource.query(query);
+>>>>>>> ab86e763c74c7b40cbdb2a6db4337c0e9dcaa40a
 }
 
 /**

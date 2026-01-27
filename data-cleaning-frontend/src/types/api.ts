@@ -117,6 +117,7 @@ export interface ApiClient {
     downloadExceptionData(jobId: string): Promise<Blob>;
     getCleanDataPaginated(jobId: string, page: number, pageSize: number): Promise<PaginatedDataResponse>;
     getExceptionDataPaginated(jobId: string, page: number, pageSize: number): Promise<PaginatedDataResponse>;
+<<<<<<< HEAD
 
     // Rule Configuration API methods
     getCurrentRuleConfig(): Promise<import('./rule-config').RuleConfigResponse>;
@@ -124,6 +125,8 @@ export interface ApiClient {
     reloadRuleConfig(): Promise<import('./rule-config').RuleConfigResponse>;
     getRuleConfigHistory(limit?: number): Promise<import('./rule-config').ConfigHistoryResponse>;
     getRuleConfigStats(): Promise<import('./rule-config').ConfigStatsResponse>;
+=======
+>>>>>>> ab86e763c74c7b40cbdb2a6db4337c0e9dcaa40a
 }
 
 // 文件验证结果接口
