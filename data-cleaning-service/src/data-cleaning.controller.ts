@@ -39,10 +39,7 @@ import {
     DataCleanerService,
     ExportService
 } from './services';
-<<<<<<< HEAD
 import { ParallelProcessingManagerService } from './services/parallel/parallel-processing-manager.service';
-=======
->>>>>>> ab86e763c74c7b40cbdb2a6db4337c0e9dcaa40a
 import { FileStatus, Statistics, ColumnType, ColumnTypeMap } from './common/types';
 import * as path from 'path';
 
@@ -61,12 +58,8 @@ export class DataCleaningController {
         private readonly parserService: ParserService,
         private readonly dataCleanerService: DataCleanerService,
         private readonly exportService: ExportService,
-<<<<<<< HEAD
         private readonly databasePersistence: DatabasePersistenceService,
         private readonly parallelProcessingManager: ParallelProcessingManagerService,
-=======
-        private readonly databasePersistence: DatabasePersistenceService
->>>>>>> ab86e763c74c7b40cbdb2a6db4337c0e9dcaa40a
     ) { }
 
     @Post('upload')
@@ -611,7 +604,6 @@ export class DataCleaningController {
         }
     }
 
-<<<<<<< HEAD
     @Get('progress/:jobId')
     @ApiOperation({
         summary: '查询处理进度',
@@ -956,8 +948,6 @@ export class DataCleaningController {
         }
     }
 
-=======
->>>>>>> ab86e763c74c7b40cbdb2a6db4337c0e9dcaa40a
     /**
      * Process file asynchronously
      */
@@ -968,7 +958,6 @@ export class DataCleaningController {
             // Update status to processing
             await this.fileRecordService.updateFileStatus(fileRecordId, FileStatus.PROCESSING);
 
-<<<<<<< HEAD
             // ✅ 在实际数据清洗开始时计时（不包含上传时间）
             const startTime = Date.now();
 
@@ -977,54 +966,6 @@ export class DataCleaningController {
             const streamResult = await this.dataCleanerService.cleanDataStream(tempFilePath, jobId);
 
             // Calculate processing time (纯数据处理时间，不包含上传)
-=======
-            // 使用流式处理和数据库持久化
-            this.logger.log(`开始流式处理文件: ${tempFilePath}`);
-            const streamResult = await this.dataCleanerService.cleanDataStream(tempFilePath, jobId);
-
-            // Update file record with total rows after processing
-            await this.fileRecordService.updateFileStatus(fileRecordId, FileStatus.PROCESSING, {
-                totalRows: streamResult.statistics.totalRows,
-                cleanedRows: streamResult.statistics.processedRows,
-                exceptionRows: streamResult.statistics.errorRows,
-                processingTime: 0,
-            });
-
-            // Export clean data from database
-            let cleanDataPath: string | null = null;
-            if (streamResult.statistics.processedRows > 0) {
-                this.logger.log(`导出清洁数据，行数: ${streamResult.statistics.processedRows}`);
-
-                // Get original headers - 这里需要从数据库或文件中获取
-                // 暂时使用空数组，实际应该从文件解析中获取
-                const originalHeaders: string[] = [];
-                const columnTypes: ColumnTypeMap = {};
-
-                cleanDataPath = await this.exportService.exportCleanData(
-                    jobId,
-                    originalHeaders,
-                    columnTypes
-                );
-                this.logger.log(`清洁数据导出路径: ${cleanDataPath}`);
-            }
-
-            // Export exception data from database
-            let exceptionDataPath: string | null = null;
-            if (streamResult.statistics.errorRows > 0) {
-                this.logger.log(`导出异常数据，行数: ${streamResult.statistics.errorRows}`);
-
-                // Get original headers
-                const originalHeaders: string[] = [];
-
-                exceptionDataPath = await this.exportService.exportExceptionData(
-                    jobId,
-                    originalHeaders
-                );
-                this.logger.log(`异常数据导出路径: ${exceptionDataPath}`);
-            }
-
-            // Calculate processing time
->>>>>>> ab86e763c74c7b40cbdb2a6db4337c0e9dcaa40a
             const processingTime = Date.now() - startTime;
             const statistics: Statistics = {
                 totalRows: streamResult.statistics.totalRows,

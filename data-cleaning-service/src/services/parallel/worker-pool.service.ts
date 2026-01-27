@@ -15,7 +15,6 @@ import {
 interface WorkerInfo {
   /** 工作线程实例 */
   worker: Worker;
-<<<<<<< HEAD
 
   /** 工作线程 ID */
   id: number;
@@ -29,21 +28,6 @@ interface WorkerInfo {
   /** 创建时间 */
   createdAt: Date;
 
-=======
-  
-  /** 工作线程 ID */
-  id: number;
-  
-  /** 当前状态 */
-  status: 'idle' | 'busy' | 'failed' | 'terminated';
-  
-  /** 当前执行的任务 */
-  currentTask?: WorkerTask;
-  
-  /** 创建时间 */
-  createdAt: Date;
-  
->>>>>>> ab86e763c74c7b40cbdb2a6db4337c0e9dcaa40a
   /** 最后活动时间 */
   lastActivityAt: Date;
 }
@@ -61,7 +45,6 @@ interface WorkerInfo {
 @Injectable()
 export class WorkerPoolService {
   private readonly logger = new Logger(WorkerPoolService.name);
-<<<<<<< HEAD
 
   /** 工作线程池 */
   private workers: Map<number, WorkerInfo> = new Map();
@@ -78,28 +61,12 @@ export class WorkerPoolService {
   /** 消息处理回调 */
   private messageHandler?: (message: WorkerToMainMessage) => void;
 
-=======
-  
-  /** 工作线程池 */
-  private workers: Map<number, WorkerInfo> = new Map();
-  
-  /** 工作线程脚本路径 */
-  private workerScriptPath: string;
-  
-  /** 是否已初始化 */
-  private initialized = false;
-  
-  /** 失败的工作线程计数 */
-  private failedWorkerCount = 0;
-
->>>>>>> ab86e763c74c7b40cbdb2a6db4337c0e9dcaa40a
   constructor() {
     // 工作线程脚本路径（将在后续任务中创建）
     this.workerScriptPath = path.join(__dirname, '../../workers/data-cleaning.worker.js');
   }
 
   /**
-<<<<<<< HEAD
    * 设置消息处理回调
    * @param handler 消息处理函数
    */
@@ -108,8 +75,6 @@ export class WorkerPoolService {
   }
 
   /**
-=======
->>>>>>> ab86e763c74c7b40cbdb2a6db4337c0e9dcaa40a
    * 初始化工作线程池
    * 
    * @param count - 要创建的工作线程数量
@@ -148,11 +113,6 @@ export class WorkerPoolService {
 
     try {
       const worker = new Worker(this.workerScriptPath);
-<<<<<<< HEAD
-
-=======
-      
->>>>>>> ab86e763c74c7b40cbdb2a6db4337c0e9dcaa40a
       const workerInfo: WorkerInfo = {
         worker,
         id,
@@ -210,14 +170,11 @@ export class WorkerPoolService {
    * @param message - 消息
    */
   private handleWorkerMessage(workerId: number, message: WorkerToMainMessage): void {
-<<<<<<< HEAD
     // 转发消息给并行处理管理器
     if (this.messageHandler) {
       this.messageHandler(message);
     }
 
-=======
->>>>>>> ab86e763c74c7b40cbdb2a6db4337c0e9dcaa40a
     switch (message.type) {
       case 'PROGRESS':
         this.logger.debug(
@@ -276,11 +233,6 @@ export class WorkerPoolService {
     const workerInfo = this.workers.get(workerId);
     if (workerInfo) {
       workerInfo.status = 'terminated';
-<<<<<<< HEAD
-
-=======
-      
->>>>>>> ab86e763c74c7b40cbdb2a6db4337c0e9dcaa40a
       // 如果工作线程在执行任务时退出，标记为失败
       if (workerInfo.currentTask) {
         this.failedWorkerCount++;
@@ -318,11 +270,6 @@ export class WorkerPoolService {
 
     return new Promise((resolve, reject) => {
       const { worker } = workerInfo;
-<<<<<<< HEAD
-
-=======
-      
->>>>>>> ab86e763c74c7b40cbdb2a6db4337c0e9dcaa40a
       // 更新工作线程状态
       workerInfo.status = 'busy';
       workerInfo.currentTask = task;
@@ -339,51 +286,34 @@ export class WorkerPoolService {
       const messageHandler = (message: WorkerToMainMessage) => {
         if (message.type === 'COMPLETE') {
           clearTimeout(timeout);
-<<<<<<< HEAD
           worker.removeListener('message', messageHandler);
           worker.removeListener('error', errorHandler);
-=======
->>>>>>> ab86e763c74c7b40cbdb2a6db4337c0e9dcaa40a
           workerInfo.status = 'idle';
           workerInfo.currentTask = undefined;
           resolve(message.payload);
         } else if (message.type === 'ERROR') {
           clearTimeout(timeout);
-<<<<<<< HEAD
           worker.removeListener('message', messageHandler);
           worker.removeListener('error', errorHandler);
-=======
->>>>>>> ab86e763c74c7b40cbdb2a6db4337c0e9dcaa40a
           workerInfo.status = 'failed';
           workerInfo.currentTask = undefined;
           reject(new Error(message.payload.error));
         }
-<<<<<<< HEAD
         // 对于 PROGRESS 和 METRICS 消息，不做任何处理，让全局处理器处理
-=======
->>>>>>> ab86e763c74c7b40cbdb2a6db4337c0e9dcaa40a
       };
 
       // 临时错误监听器
       const errorHandler = (error: Error) => {
         clearTimeout(timeout);
-<<<<<<< HEAD
         worker.removeListener('message', messageHandler);
         worker.removeListener('error', errorHandler);
-=======
->>>>>>> ab86e763c74c7b40cbdb2a6db4337c0e9dcaa40a
         workerInfo.status = 'failed';
         workerInfo.currentTask = undefined;
         reject(error);
       };
 
-<<<<<<< HEAD
       // 添加临时监听器 - 使用 on 而不是 once，因为会收到多个消息
       worker.on('message', messageHandler);
-=======
-      // 添加临时监听器
-      worker.once('message', messageHandler);
->>>>>>> ab86e763c74c7b40cbdb2a6db4337c0e9dcaa40a
       worker.once('error', errorHandler);
 
       // 发送任务到工作线程
@@ -503,19 +433,11 @@ export class WorkerPoolService {
   ): Promise<void> {
     const { worker, id } = workerInfo;
 
-<<<<<<< HEAD
     return new Promise<void>((resolve, reject) => {
       // 设置超时
       const timeout = setTimeout(() => {
         this.logger.warn(`工作线程 ${id} 未在超时时间内响应，强制终止`);
         worker.terminate().then(() => resolve()).catch(reject);
-=======
-    return new Promise((resolve, reject) => {
-      // 设置超时
-      const timeout = setTimeout(() => {
-        this.logger.warn(`工作线程 ${id} 未在超时时间内响应，强制终止`);
-        worker.terminate().then(resolve).catch(reject);
->>>>>>> ab86e763c74c7b40cbdb2a6db4337c0e9dcaa40a
       }, timeoutMs);
 
       // 监听退出事件
@@ -534,11 +456,7 @@ export class WorkerPoolService {
       } catch (error) {
         clearTimeout(timeout);
         // 如果发送消息失败，直接终止
-<<<<<<< HEAD
         worker.terminate().then(() => resolve()).catch(reject);
-=======
-        worker.terminate().then(resolve).catch(reject);
->>>>>>> ab86e763c74c7b40cbdb2a6db4337c0e9dcaa40a
       }
     });
   }
@@ -554,11 +472,6 @@ export class WorkerPoolService {
     }
 
     const status = this.getStatus();
-<<<<<<< HEAD
-
-=======
-    
->>>>>>> ab86e763c74c7b40cbdb2a6db4337c0e9dcaa40a
     // 如果超过一半的工作线程失败，认为不健康
     if (status.failedWorkers > status.totalWorkers / 2) {
       return false;
@@ -578,19 +491,11 @@ export class WorkerPoolService {
     for (const [id, workerInfo] of this.workers.entries()) {
       if (workerInfo.status === 'failed' || workerInfo.status === 'terminated') {
         this.logger.log(`重启工作线程 ${id}...`);
-<<<<<<< HEAD
 
         try {
           // 终止旧的工作线程
           await workerInfo.worker.terminate();
 
-=======
-        
-        try {
-          // 终止旧的工作线程
-          await workerInfo.worker.terminate();
-          
->>>>>>> ab86e763c74c7b40cbdb2a6db4337c0e9dcaa40a
           // 创建新的工作线程
           await this.createWorker(id);
           restartedCount++;
