@@ -263,6 +263,106 @@ class ApiClientImpl implements ApiClient {
 
         return response.data;
     }
+
+    /**
+     * 查询处理进度
+     */
+    async getProgress(jobId: string): Promise<import('../types/api').ProgressResponse> {
+        const response = await this.client.get<import('../types/api').ProgressResponse>(
+            `/api/data-cleaning/progress/${jobId}`
+        );
+
+        return response.data;
+    }
+
+    /**
+     * 查询性能指标
+     */
+    async getMetrics(jobId: string): Promise<import('../types/api').MetricsResponse> {
+        const response = await this.client.get<import('../types/api').MetricsResponse>(
+            `/api/data-cleaning/metrics/${jobId}`
+        );
+
+        return response.data;
+    }
+
+    /**
+     * 查询性能报告
+     */
+    async getPerformanceReport(jobId: string): Promise<import('../types/api').PerformanceReportResponse> {
+        const response = await this.client.get<import('../types/api').PerformanceReportResponse>(
+            `/api/data-cleaning/report/${jobId}`
+        );
+
+        return response.data;
+    }
+
+    // Rule Configuration API Methods
+
+    /**
+     * 获取当前规则配置
+     */
+    async getCurrentRuleConfig(): Promise<import('../types/rule-config').RuleConfigResponse> {
+        const response = await this.client.get<import('../types/rule-config').RuleConfigResponse>(
+            '/api/rule-config/current'
+        );
+
+        return response.data;
+    }
+
+    /**
+     * 更新规则配置
+     */
+    async updateRuleConfig(
+        config: import('../types/rule-config').RuleConfiguration,
+        description?: string
+    ): Promise<import('../types/rule-config').RuleConfigResponse> {
+        const response = await this.client.put<import('../types/rule-config').RuleConfigResponse>(
+            '/api/rule-config/update',
+            {
+                configuration: config,
+                description
+            }
+        );
+
+        return response.data;
+    }
+
+    /**
+     * 重新加载规则配置
+     */
+    async reloadRuleConfig(): Promise<import('../types/rule-config').RuleConfigResponse> {
+        const response = await this.client.post<import('../types/rule-config').RuleConfigResponse>(
+            '/api/rule-config/reload'
+        );
+
+        return response.data;
+    }
+
+    /**
+     * 获取规则配置历史
+     */
+    async getRuleConfigHistory(limit?: number): Promise<import('../types/rule-config').ConfigHistoryResponse> {
+        const response = await this.client.get<import('../types/rule-config').ConfigHistoryResponse>(
+            '/api/rule-config/history',
+            {
+                params: limit ? { limit } : undefined
+            }
+        );
+
+        return response.data;
+    }
+
+    /**
+     * 获取规则配置统计信息
+     */
+    async getRuleConfigStats(): Promise<import('../types/rule-config').ConfigStatsResponse> {
+        const response = await this.client.get<import('../types/rule-config').ConfigStatsResponse>(
+            '/api/rule-config/stats'
+        );
+
+        return response.data;
+    }
 }
 
 // 创建API客户端实例

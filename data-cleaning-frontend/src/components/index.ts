@@ -10,6 +10,11 @@ export { FileDetail } from './file-detail';
 export { DownloadManager } from './download-manager';
 export { Layout } from './layout';
 
+// 监控组件
+export { ProgressMonitor } from './progress-monitor';
+export { MetricsMonitor } from './metrics-monitor';
+export { PerformanceReport } from './performance-report';
+
 // UI 组件
 export { Button } from './ui/button';
 export { Progress } from './ui/progress';

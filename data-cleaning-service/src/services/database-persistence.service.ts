@@ -239,7 +239,7 @@ export class DatabasePersistenceService {
      * @returns 分页结果
      */
     async getErrorLogsByJobIdPaginated(jobId: string, page: number = 1, pageSize: number = 100): Promise<{
-        data: ErrorLog[];
+        data: any[];
         total: number;
         page: number;
         pageSize: number;
@@ -248,7 +248,7 @@ export class DatabasePersistenceService {
         this.logger.log(`Querying error logs for job: ${jobId}, page: ${page}, pageSize: ${pageSize}`);
 
         try {
-            const [data, total] = await this.errorLogRepository.findAndCount({
+            const [rawData, total] = await this.errorLogRepository.findAndCount({
                 where: { jobId },
                 order: { rowNumber: 'ASC' },
                 skip: (page - 1) * pageSize,
@@ -256,6 +256,39 @@ export class DatabasePersistenceService {
             });
 
             const totalPages = Math.ceil(total / pageSize);
+
+            // 结构化错误数据，解析JSON字符串为可读对象
+            const data = rawData.map(errorLog => {
+                let structuredErrors;
+                try {
+                    // 尝试解析errors字段中的JSON字符串
+                    if (typeof errorLog.errors === 'string') {
+                        structuredErrors = JSON.parse(errorLog.errors);
+                    } else {
+                        structuredErrors = errorLog.errors;
+                    }
+                } catch (parseError) {
+                    // 如果解析失败，保持原始格式但添加解析错误信息
+                    this.logger.warn(`Failed to parse error JSON for row ${errorLog.rowNumber}: ${parseError.message}`);
+                    structuredErrors = {
+                        parseError: '错误数据解析失败',
+                        originalError: errorLog.errors,
+                        message: '无法解析错误详情，请检查原始错误数据'
+                    };
+                }
+
+                return {
+                    id: errorLog.id,
+                    jobId: errorLog.jobId,
+                    rowNumber: errorLog.rowNumber,
+                    originalData: errorLog.originalData,
+                    errors: structuredErrors,
+                    errorSummary: errorLog.errorSummary,
+                    createdAt: errorLog.createdAt,
+                    // 添加结构化的错误详情
+                    errorDetails: this.extractErrorDetails(structuredErrors)
+                };
+            });
 
             this.logger.log(`Found ${data.length} error log records for job: ${jobId}, total: ${total}`);
 
@@ -270,6 +303,94 @@ export class DatabasePersistenceService {
             this.logger.error(`Failed to query error logs for job ${jobId}:`, error);
             throw error;
         }
+    }
+
+    /**
+     * 从错误数据中提取结构化的错误详情
+     * @param errors 错误数据
+     * @returns 结构化的错误详情
+     */
+    private extractErrorDetails(errors: any): Array<{
+        field: string;
+        rule: string;
+        invalidValue: any;
+        expectedFormat: string;
+        message: string;
+    }> {
+        const errorDetails: Array<{
+            field: string;
+            rule: string;
+            invalidValue: any;
+            expectedFormat: string;
+            message: string;
+        }> = [];
+
+        try {
+            if (Array.isArray(errors)) {
+                // 如果errors是数组，遍历每个错误
+                for (const error of errors) {
+                    errorDetails.push({
+                        field: error.field || '未知字段',
+                        rule: error.rule || error.ruleName || '未知规则',
+                        invalidValue: error.value || error.invalidValue || '未知值',
+                        expectedFormat: error.expectedFormat || error.expected || '未指定格式',
+                        message: error.message || error.error || '验证失败'
+                    });
+                }
+            } else if (typeof errors === 'object' && errors !== null) {
+                // 如果errors是对象，尝试提取错误信息
+                if (errors.field || errors.rule || errors.message) {
+                    errorDetails.push({
+                        field: errors.field || '未知字段',
+                        rule: errors.rule || errors.ruleName || '未知规则',
+                        invalidValue: errors.value || errors.invalidValue || '未知值',
+                        expectedFormat: errors.expectedFormat || errors.expected || '未指定格式',
+                        message: errors.message || errors.error || '验证失败'
+                    });
+                } else {
+                    // 如果是其他对象格式，尝试遍历属性
+                    for (const [key, value] of Object.entries(errors)) {
+                        if (typeof value === 'object' && value !== null) {
+                            errorDetails.push({
+                                field: key,
+                                rule: (value as any).rule || (value as any).ruleName || '未知规则',
+                                invalidValue: (value as any).value || (value as any).invalidValue || '未知值',
+                                expectedFormat: (value as any).expectedFormat || (value as any).expected || '未指定格式',
+                                message: (value as any).message || (value as any).error || '验证失败'
+                            });
+                        } else {
+                            errorDetails.push({
+                                field: key,
+                                rule: '未知规则',
+                                invalidValue: value,
+                                expectedFormat: '未指定格式',
+                                message: String(value)
+                            });
+                        }
+                    }
+                }
+            } else {
+                // 如果是字符串或其他类型，创建通用错误详情
+                errorDetails.push({
+                    field: '未知字段',
+                    rule: '未知规则',
+                    invalidValue: errors,
+                    expectedFormat: '未指定格式',
+                    message: String(errors)
+                });
+            }
+        } catch (extractError) {
+            this.logger.warn(`Failed to extract error details: ${extractError.message}`);
+            errorDetails.push({
+                field: '解析错误',
+                rule: '错误详情提取失败',
+                invalidValue: errors,
+                expectedFormat: '无法确定',
+                message: '无法提取错误详情，请检查原始错误数据'
+            });
+        }
+
+        return errorDetails;
     }
 
     /**

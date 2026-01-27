@@ -17,7 +17,14 @@ import { DateCleanerService } from './date-cleaner.service';
 import { AddressCleanerService } from './address-cleaner.service';
 import { StreamParserService, StreamStatistics } from './stream-parser.service';
 import { DatabasePersistenceService } from './database-persistence.service';
+import { ParallelProcessingManagerService } from './parallel/parallel-processing-manager.service';
+import { workerThreadsConfig, shouldUseParallelProcessing } from '../config/worker-threads.config';
+import { ProcessingConfig } from './parallel/types';
+import { RuleEngineService } from './rule-engine/rule-engine.service';
+import { StrategyRegistrationService } from './rule-engine/strategy-registration.service';
+import { ConfigurationManagerService } from './rule-engine/configuration-manager.service';
 import * as path from 'path';
+import * as fs from 'fs';
 
 /**
  * 批次配置
@@ -26,11 +33,58 @@ import * as path from 'path';
 const BATCH_SIZE = 5000; // 优化：从2000增加到5000，减少数据库连接次数
 
 /**
+ * 规则引擎配置
+ * 控制是否启用新的规则引擎
+ */
+const USE_RULE_ENGINE = process.env.USE_RULE_ENGINE === 'true' || true;
+
+/**
+ * 渐进式迁移配置
+ * 控制哪些字段类型使用规则引擎处理
+ */
+const RULE_ENGINE_FIELD_TYPES = new Set([
+    ColumnType.PHONE,
+    ColumnType.DATE,
+    ColumnType.ADDRESS
+]);
+
+/**
+ * 迁移模式枚举
+ */
+enum MigrationMode {
+    LEGACY_ONLY = 'legacy_only',           // 仅使用传统清洗服务
+    RULE_ENGINE_ONLY = 'rule_engine_only', // 仅使用规则引擎
+    HYBRID = 'hybrid',                     // 混合模式：规则引擎优先，失败时回退到传统服务
+    GRADUAL = 'gradual'                    // 渐进式：特定字段类型使用规则引擎
+}
+
+/**
+ * 当前迁移模式
+ */
+const MIGRATION_MODE = (process.env.MIGRATION_MODE as MigrationMode) || MigrationMode.GRADUAL;
+
+/**
  * 流式清洗结果接口
  */
 export interface StreamCleaningResult {
     jobId: string;
     statistics: StreamStatistics;
+    performanceMetrics?: PerformanceMetrics;  // 可选：性能指标（仅并行处理时提供）
+}
+
+/**
+ * 性能指标接口（用于响应）
+ */
+export interface PerformanceMetrics {
+    processingMode: 'parallel' | 'sequential';  // 处理模式
+    workerCount?: number;                       // 工作线程数（仅并行模式）
+    avgCpuUsage?: number;                       // 平均 CPU 使用率（%）
+    peakCpuUsage?: number;                      // 峰值 CPU 使用率（%）
+    avgMemoryUsage?: number;                    // 平均内存使用（MB）
+    peakMemoryUsage?: number;                   // 峰值内存使用（MB）
+    avgThroughput?: number;                     // 平均吞吐量（行/秒）
+    peakThroughput?: number;                    // 峰值吞吐量（行/秒）
+    processingTimeMs?: number;                  // 处理时间（毫秒）
 }
 
 /**
@@ -47,7 +101,29 @@ export class DataCleanerService {
         private readonly addressCleaner: AddressCleanerService,
         private readonly streamParser: StreamParserService,
         private readonly databasePersistence: DatabasePersistenceService,
-    ) { }
+        private readonly parallelProcessingManager: ParallelProcessingManagerService,
+        private readonly ruleEngine: RuleEngineService,
+        private readonly strategyRegistration: StrategyRegistrationService,
+        private readonly configurationManager: ConfigurationManagerService,
+    ) {
+        // 记录配置信息
+        this.logger.log(
+            `DataCleanerService 初始化: ` +
+            `并行处理=${workerThreadsConfig.enableParallelProcessing ? '启用' : '禁用'}, ` +
+            `工作线程数=${workerThreadsConfig.workerCount}, ` +
+            `最小并行记录数=${workerThreadsConfig.minRecordsForParallel}, ` +
+            `规则引擎=${USE_RULE_ENGINE ? '启用' : '禁用'}, ` +
+            `迁移模式=${MIGRATION_MODE}`
+        );
+
+        // 确保策略已注册
+        this.ensureStrategiesRegistered();
+
+        // 初始化配置管理器（异步，但不阻塞构造函数）
+        this.initializeConfigurationManager().catch(error => {
+            this.logger.error('Configuration manager initialization failed:', error);
+        });
+    }
 
     /**
      * Clean all data from parsed Excel file
@@ -114,12 +190,168 @@ export class DataCleanerService {
 
     /**
      * 流式清洗数据（用于大文件）
+     * 根据配置和文件大小自动选择并行或顺序处理
      * @param filePath 文件路径
      * @param jobId 任务ID
      * @returns StreamCleaningResult 包含统计信息
      */
     async cleanDataStream(filePath: string, jobId: string): Promise<StreamCleaningResult> {
-        this.logger.log(`开始流式数据清洗任务: ${jobId}, 文件: ${filePath}`);
+        this.logger.log(`开始数据清洗任务: ${jobId}, 文件: ${filePath}`);
+
+        // 检查文件是否存在
+        if (!fs.existsSync(filePath)) {
+            throw new Error(`文件不存在: ${filePath}`);
+        }
+
+        // 快速估算文件行数（用于决定是否使用并行处理）
+        const estimatedRows = await this.estimateFileRows(filePath);
+
+        this.logger.log(
+            `文件行数估算: ${estimatedRows.toLocaleString()} 行, ` +
+            `文件大小: ${(estimatedRows * 100 / 1024 / 1024).toFixed(2)} MB (估算)`
+        );
+
+        // 决定是否使用并行处理
+        const useParallel = shouldUseParallelProcessing(workerThreadsConfig, estimatedRows);
+
+        if (useParallel) {
+            this.logger.log(
+                `使用并行处理: 工作线程数=${workerThreadsConfig.workerCount}, ` +
+                `批处理大小=${workerThreadsConfig.parallelBatchSize}`
+            );
+            return await this.cleanDataStreamParallel(filePath, jobId);
+        } else {
+            this.logger.log(
+                `使用顺序处理: 文件行数(${estimatedRows})小于最小并行阈值(${workerThreadsConfig.minRecordsForParallel})` +
+                `或并行处理已禁用`
+            );
+            return await this.cleanDataStreamSequential(filePath, jobId);
+        }
+    }
+
+    /**
+     * 估算文件行数（快速方法）
+     * @param filePath 文件路径
+     * @returns 估算的行数
+     */
+    private async estimateFileRows(filePath: string): Promise<number> {
+        const fileExtension = path.extname(filePath).toLowerCase();
+
+        try {
+            // 获取文件大小
+            const stats = fs.statSync(filePath);
+            const fileSizeBytes = stats.size;
+
+            // 根据文件类型估算
+            if (fileExtension === '.csv') {
+                // CSV: 假设平均每行 100 字节
+                return Math.floor(fileSizeBytes / 100);
+            } else {
+                // Excel: 假设平均每行 150 字节（包含格式开销）
+                return Math.floor(fileSizeBytes / 150);
+            }
+        } catch (error) {
+            this.logger.warn(`无法估算文件行数: ${error.message}，使用默认值 1000`);
+            return 1000;
+        }
+    }
+
+    /**
+     * 并行流式清洗数据
+     * @param filePath 文件路径
+     * @param jobId 任务ID
+     * @returns StreamCleaningResult 包含统计信息
+     */
+    private async cleanDataStreamParallel(
+        filePath: string,
+        jobId: string,
+    ): Promise<StreamCleaningResult> {
+        const startTime = Date.now();
+
+        this.logger.log(`开始并行流式数据清洗: ${jobId}`);
+
+        try {
+            // 构建处理配置
+            const config: ProcessingConfig = {
+                workerCount: workerThreadsConfig.workerCount,
+                batchSize: workerThreadsConfig.parallelBatchSize,
+                timeoutMs: workerThreadsConfig.workerTimeoutMs,
+                enableProgressTracking: workerThreadsConfig.enableProgressTracking,
+                enablePerformanceMonitoring: workerThreadsConfig.enablePerformanceMonitoring,
+                performanceSampleInterval: workerThreadsConfig.performanceSampleInterval,
+            };
+
+            // 使用并行处理管理器处理文件
+            const result = await this.parallelProcessingManager.processFile(
+                filePath,
+                jobId,
+                config,
+            );
+
+            const totalTime = (Date.now() - startTime) / 1000;
+
+            this.logger.log(
+                `并行流式数据清洗完成: ${jobId}, ` +
+                `总行数: ${result.totalRecords.toLocaleString()}, ` +
+                `成功: ${result.successCount.toLocaleString()}, ` +
+                `错误: ${result.errorCount.toLocaleString()}, ` +
+                `耗时: ${totalTime.toFixed(2)}秒, ` +
+                `平均速度: ${(result.totalRecords / totalTime).toFixed(0)}行/秒`
+            );
+
+            // 如果有性能摘要，记录性能指标
+            if (result.performanceSummary) {
+                this.logger.log(
+                    `性能指标: ` +
+                    `平均CPU=${result.performanceSummary.avgCpuUsage.toFixed(1)}%, ` +
+                    `峰值CPU=${result.performanceSummary.peakCpuUsage.toFixed(1)}%, ` +
+                    `平均内存=${result.performanceSummary.avgMemoryUsage.toFixed(1)}MB, ` +
+                    `峰值内存=${result.performanceSummary.peakMemoryUsage.toFixed(1)}MB, ` +
+                    `平均吞吐量=${result.performanceSummary.avgThroughput.toFixed(0)}行/秒`
+                );
+            }
+
+            // 转换为 StreamCleaningResult 格式
+            const streamResult: StreamCleaningResult = {
+                jobId,
+                statistics: {
+                    totalRows: result.totalRecords,
+                    processedRows: result.successCount,
+                    errorRows: result.errorCount,
+                },
+            };
+
+            // 添加性能指标（可选字段）
+            if (result.performanceSummary) {
+                streamResult.performanceMetrics = {
+                    processingMode: 'parallel',
+                    workerCount: config.workerCount,
+                    avgCpuUsage: result.performanceSummary.avgCpuUsage,
+                    peakCpuUsage: result.performanceSummary.peakCpuUsage,
+                    avgMemoryUsage: result.performanceSummary.avgMemoryUsage,
+                    peakMemoryUsage: result.performanceSummary.peakMemoryUsage,
+                    avgThroughput: result.performanceSummary.avgThroughput,
+                    peakThroughput: result.performanceSummary.peakThroughput,
+                    processingTimeMs: result.processingTimeMs,
+                };
+            }
+
+            return streamResult;
+
+        } catch (error) {
+            this.logger.error(`并行流式数据清洗失败: ${error.message}`, error.stack);
+            throw error;
+        }
+    }
+
+    /**
+     * 顺序流式清洗数据（原有实现）
+     * @param filePath 文件路径
+     * @param jobId 任务ID
+     * @returns StreamCleaningResult 包含统计信息
+     */
+    private async cleanDataStreamSequential(filePath: string, jobId: string): Promise<StreamCleaningResult> {
+        this.logger.log(`开始顺序流式数据清洗任务: ${jobId}, 文件: ${filePath}`);
 
         // 初始化批次
         let cleanBatch: any[] = [];
@@ -190,7 +422,7 @@ export class DataCleanerService {
                                 jobId,
                                 rowNumber: cleanedRow.rowNumber,
                                 originalData: cleanedRow.originalData,
-                                errors: cleanedRow.errors,
+                                errors: JSON.stringify(cleanedRow.errors),
                                 errorSummary,
                             });
                         }
@@ -267,7 +499,7 @@ export class DataCleanerService {
                                 jobId,
                                 rowNumber: cleanedRow.rowNumber,
                                 originalData: cleanedRow.originalData,
-                                errors: cleanedRow.errors,
+                                errors: JSON.stringify(cleanedRow.errors),
                                 errorSummary,
                             });
                         }
@@ -318,7 +550,7 @@ export class DataCleanerService {
             const avgSpeed = totalRows / totalTime;
 
             this.logger.log(
-                `流式数据清洗完成: ${jobId}, ` +
+                `顺序流式数据清洗完成: ${jobId}, ` +
                 `总行数: ${statistics.totalRows.toLocaleString()}, ` +
                 `清洁数据: ${statistics.processedRows.toLocaleString()}行, ` +
                 `异常数据: ${statistics.errorRows.toLocaleString()}行, ` +
@@ -326,32 +558,159 @@ export class DataCleanerService {
                 `平均速度: ${avgSpeed.toFixed(0)}行/秒`
             );
 
-            return {
+            // 构建返回结果
+            const streamResult: StreamCleaningResult = {
                 jobId,
                 statistics,
             };
+
+            // 添加性能指标（标记为顺序模式）
+            if (workerThreadsConfig.enablePerformanceMonitoring) {
+                streamResult.performanceMetrics = {
+                    processingMode: 'sequential',
+                    avgThroughput: avgSpeed,
+                    processingTimeMs: totalTime * 1000,
+                };
+            }
+
+            return streamResult;
         } catch (error) {
-            this.logger.error(`流式数据清洗失败: ${error.message}`, error.stack);
+            this.logger.error(`顺序流式数据清洗失败: ${error.message}`, error.stack);
             throw error;
         }
     }
 
     /**
-     * Clean a single row of data
+     * Clean a single row of data using the rule engine (new approach)
+     * @param row - Row data to clean
+     * @param columnTypes - Column type mapping for the row
+     * @returns Cleaned row with original data, cleaned data, and any errors
+     */
+    async cleanRowWithRuleEngine(row: RowData, columnTypes: ColumnTypeMap): Promise<CleanedRow & { errors: FieldError[] }> {
+        try {
+            // Use the rule engine to process the row
+            const ruleResult = await this.ruleEngine.cleanRow(row.data, columnTypes);
+
+            if (ruleResult.success) {
+                return {
+                    rowNumber: row.rowNumber,
+                    originalData: row.data,
+                    cleanedData: ruleResult.processedData,
+                    errors: []
+                };
+            } else {
+                // Convert rule engine errors to legacy format
+                const legacyErrors: FieldError[] = ruleResult.errors.map(error => ({
+                    field: error.field,
+                    originalValue: error.originalValue,
+                    errorType: error.type,
+                    errorMessage: error.message
+                }));
+
+                return {
+                    rowNumber: row.rowNumber,
+                    originalData: row.data,
+                    cleanedData: ruleResult.processedData,
+                    errors: legacyErrors
+                };
+            }
+        } catch (error) {
+            this.logger.error(`Rule engine processing failed for row ${row.rowNumber}:`, error);
+
+            // Fallback to legacy cleaning method
+            this.logger.warn(`Falling back to legacy cleaning for row ${row.rowNumber}`);
+            return this.cleanRow(row, columnTypes);
+        }
+    }
+
+    /**
+     * Clean a single row of data with migration mode support
      * @param row - Row data to clean
      * @param columnTypes - Column type mapping for the row
      * @returns Cleaned row with original data, cleaned data, and any errors
      */
     cleanRow(row: RowData, columnTypes: ColumnTypeMap): CleanedRow & { errors: FieldError[] } {
+        // Determine processing approach based on migration mode
+        switch (MIGRATION_MODE) {
+            case MigrationMode.RULE_ENGINE_ONLY:
+                if (USE_RULE_ENGINE) {
+                    try {
+                        // Note: This would need to be async in a real implementation
+                        // For now, we'll use the legacy method but log the intention
+                        this.logger.debug(`Rule engine only mode - would use cleanRowWithRuleEngine for row ${row.rowNumber}`);
+                    } catch (error) {
+                        this.logger.error(`Rule engine only mode failed for row ${row.rowNumber}:`, error);
+                        throw error; // Don't fallback in rule engine only mode
+                    }
+                }
+                break;
+
+            case MigrationMode.HYBRID:
+                if (USE_RULE_ENGINE) {
+                    try {
+                        // In hybrid mode, try rule engine first, fallback to legacy on failure
+                        this.logger.debug(`Hybrid mode - trying rule engine first for row ${row.rowNumber}`);
+                        // Would call cleanRowWithRuleEngine here in async context
+                    } catch (error) {
+                        this.logger.warn(`Rule engine failed in hybrid mode, falling back to legacy for row ${row.rowNumber}:`, error);
+                        // Continue to legacy processing below
+                    }
+                }
+                break;
+
+            case MigrationMode.GRADUAL:
+                if (USE_RULE_ENGINE) {
+                    // In gradual mode, use rule engine for specific field types
+                    const hasRuleEngineFields = Object.values(columnTypes).some(type =>
+                        RULE_ENGINE_FIELD_TYPES.has(type as ColumnType)
+                    );
+
+                    if (hasRuleEngineFields) {
+                        this.logger.debug(`Gradual mode - using rule engine for supported field types in row ${row.rowNumber}`);
+                        return this.cleanRowGradual(row, columnTypes);
+                    }
+                }
+                break;
+
+            case MigrationMode.LEGACY_ONLY:
+            default:
+                // Use legacy processing
+                break;
+        }
+
+        // Legacy processing (default behavior)
+        return this.cleanRowLegacy(row, columnTypes);
+    }
+
+    /**
+     * Clean a single row using gradual migration approach
+     * @param row - Row data to clean
+     * @param columnTypes - Column type mapping for the row
+     * @returns Cleaned row with original data, cleaned data, and any errors
+     */
+    private cleanRowGradual(row: RowData, columnTypes: ColumnTypeMap): CleanedRow & { errors: FieldError[] } {
         const cleanedData: Record<string, any> = {};
         const errors: FieldError[] = [];
 
-        // Process each field in the row
+        // Process each field based on whether it should use rule engine or legacy
         for (const [fieldName, originalValue] of Object.entries(row.data)) {
             const columnType = columnTypes[fieldName] || ColumnType.TEXT;
 
             try {
-                const cleanResult = this.cleanField(fieldName, originalValue, columnType);
+                let cleanResult: CleanResult<any>;
+
+                if (RULE_ENGINE_FIELD_TYPES.has(columnType as ColumnType)) {
+                    // Use rule engine for supported field types
+                    try {
+                        cleanResult = this.cleanFieldWithRuleEngine(fieldName, originalValue, columnType);
+                    } catch (error) {
+                        this.logger.warn(`Rule engine failed for field ${fieldName}, falling back to legacy:`, error);
+                        cleanResult = this.cleanFieldLegacy(fieldName, originalValue, columnType);
+                    }
+                } else {
+                    // Use legacy cleaning for unsupported field types
+                    cleanResult = this.cleanFieldLegacy(fieldName, originalValue, columnType);
+                }
 
                 if (cleanResult.success) {
                     cleanedData[fieldName] = cleanResult.value;
@@ -391,13 +750,263 @@ export class DataCleanerService {
     }
 
     /**
-     * Clean a single field based on its type
+     * Clean a single row using legacy approach only
+     * @param row - Row data to clean
+     * @param columnTypes - Column type mapping for the row
+     * @returns Cleaned row with original data, cleaned data, and any errors
+     */
+    private cleanRowLegacy(row: RowData, columnTypes: ColumnTypeMap): CleanedRow & { errors: FieldError[] } {
+        const cleanedData: Record<string, any> = {};
+        const errors: FieldError[] = [];
+
+        // Process each field in the row using legacy method
+        for (const [fieldName, originalValue] of Object.entries(row.data)) {
+            const columnType = columnTypes[fieldName] || ColumnType.TEXT;
+
+            try {
+                const cleanResult = this.cleanFieldLegacy(fieldName, originalValue, columnType);
+
+                if (cleanResult.success) {
+                    cleanedData[fieldName] = cleanResult.value;
+                } else {
+                    // Keep original value and record error
+                    cleanedData[fieldName] = originalValue;
+                    errors.push({
+                        field: fieldName,
+                        originalValue,
+                        errorType: this.getErrorType(columnType),
+                        errorMessage: cleanResult.error || 'Unknown error',
+                    });
+                }
+            } catch (error) {
+                // Handle unexpected errors
+                cleanedData[fieldName] = originalValue;
+                errors.push({
+                    field: fieldName,
+                    originalValue,
+                    errorType: 'PROCESSING_ERROR',
+                    errorMessage: `Unexpected error during cleaning: ${error.message}`,
+                });
+
+                this.logger.error(
+                    `清洗字段 ${fieldName} 时发生错误: ${error.message}`,
+                    error.stack
+                );
+            }
+        }
+
+        return {
+            rowNumber: row.rowNumber,
+            originalData: row.data,
+            cleanedData,
+            errors,
+        };
+    }
+
+    /**
+     * Clean a single field using rule engine
      * @param fieldName - Name of the field
      * @param value - Original field value
      * @param columnType - Type of the column
      * @returns CleanResult with cleaned value or error
      */
-    private cleanField(fieldName: string, value: any, columnType: ColumnType): CleanResult<any> {
+    private cleanFieldWithRuleEngine(fieldName: string, value: any, columnType: ColumnType): CleanResult<any> {
+        try {
+            // 获取当前配置
+            const currentConfig = this.configurationManager.getCurrentConfiguration();
+
+            // 查找字段规则
+            const fieldRules = currentConfig.fieldRules[fieldName] || [];
+
+            if (fieldRules.length === 0) {
+                // 如果没有配置规则，回退到传统方法
+                this.logger.debug(`No rules found for field ${fieldName}, using legacy method`);
+                return this.cleanFieldLegacy(fieldName, value, columnType);
+            }
+
+            // 按优先级排序规则
+            const sortedRules = fieldRules.sort((a, b) => (b.priority || 0) - (a.priority || 0));
+
+            // 应用规则验证
+            for (const rule of sortedRules) {
+                if (!rule.required && (value === null || value === undefined || value === '')) {
+                    // 非必需字段且值为空，跳过验证
+                    continue;
+                }
+
+                const validationResult = this.validateFieldWithRule(fieldName, value, rule);
+                if (!validationResult.success) {
+                    return {
+                        success: false,
+                        error: rule.errorMessage || validationResult.error || 'Validation failed'
+                    };
+                }
+            }
+
+            // 所有规则验证通过，返回清洗后的值
+            return {
+                success: true,
+                value: this.cleanValueByType(value, columnType)
+            };
+
+        } catch (error) {
+            this.logger.error(`Rule engine field processing failed for ${fieldName}:`, error);
+            // 出错时回退到传统方法
+            return this.cleanFieldLegacy(fieldName, value, columnType);
+        }
+    }
+
+    /**
+     * 使用规则验证字段值
+     * @param fieldName 字段名
+     * @param value 字段值
+     * @param rule 验证规则
+     * @returns 验证结果
+     */
+    private validateFieldWithRule(fieldName: string, value: any, rule: any): { success: boolean; error?: string } {
+        try {
+            const stringValue = String(value || '').trim();
+
+            switch (rule.strategy) {
+                case 'regex':
+                    const pattern = new RegExp(rule.params.pattern, rule.params.flags || '');
+                    if (!pattern.test(stringValue)) {
+                        return {
+                            success: false,
+                            error: `Field ${fieldName} does not match pattern ${rule.params.pattern}`
+                        };
+                    }
+                    break;
+
+                case 'length':
+                    const length = stringValue.length;
+                    if (rule.params.minLength && length < rule.params.minLength) {
+                        return {
+                            success: false,
+                            error: `Field ${fieldName} is too short (min: ${rule.params.minLength})`
+                        };
+                    }
+                    if (rule.params.maxLength && length > rule.params.maxLength) {
+                        return {
+                            success: false,
+                            error: `Field ${fieldName} is too long (max: ${rule.params.maxLength})`
+                        };
+                    }
+                    if (rule.params.exactLength && length !== rule.params.exactLength) {
+                        return {
+                            success: false,
+                            error: `Field ${fieldName} must be exactly ${rule.params.exactLength} characters`
+                        };
+                    }
+                    break;
+
+                case 'range':
+                    const numValue = parseFloat(stringValue);
+                    if (isNaN(numValue)) {
+                        return {
+                            success: false,
+                            error: `Field ${fieldName} is not a valid number`
+                        };
+                    }
+                    if (rule.params.min !== undefined && numValue < rule.params.min) {
+                        return {
+                            success: false,
+                            error: `Field ${fieldName} is below minimum (${rule.params.min})`
+                        };
+                    }
+                    if (rule.params.max !== undefined && numValue > rule.params.max) {
+                        return {
+                            success: false,
+                            error: `Field ${fieldName} is above maximum (${rule.params.max})`
+                        };
+                    }
+                    break;
+
+                case 'phone-cleaner':
+                    // 使用传统的手机号清洗服务进行验证
+                    const phoneResult = this.phoneCleaner.cleanPhone(value);
+                    if (!phoneResult.success) {
+                        return {
+                            success: false,
+                            error: phoneResult.error
+                        };
+                    }
+                    break;
+
+                case 'date-cleaner':
+                    // 使用传统的日期清洗服务进行验证
+                    const dateResult = this.dateCleaner.cleanDate(value);
+                    if (!dateResult.success) {
+                        return {
+                            success: false,
+                            error: dateResult.error
+                        };
+                    }
+                    break;
+
+                case 'address-cleaner':
+                    // 使用传统的地址清洗服务进行验证
+                    const addressResult = this.addressCleaner.cleanAddress(value);
+                    if (!addressResult.success) {
+                        return {
+                            success: false,
+                            error: addressResult.error
+                        };
+                    }
+                    break;
+
+                default:
+                    this.logger.warn(`Unknown validation strategy: ${rule.strategy}`);
+                    break;
+            }
+
+            return { success: true };
+
+        } catch (error) {
+            return {
+                success: false,
+                error: `Validation error: ${error.message}`
+            };
+        }
+    }
+
+    /**
+     * 根据类型清洗值
+     * @param value 原始值
+     * @param columnType 列类型
+     * @returns 清洗后的值
+     */
+    private cleanValueByType(value: any, columnType: ColumnType): any {
+        switch (columnType) {
+            case ColumnType.PHONE:
+                const phoneResult = this.phoneCleaner.cleanPhone(value);
+                return phoneResult.success ? phoneResult.value : value;
+
+            case ColumnType.DATE:
+                const dateResult = this.dateCleaner.cleanDate(value);
+                return dateResult.success ? dateResult.value : value;
+
+            case ColumnType.ADDRESS:
+                const addressResult = this.addressCleaner.cleanAddress(value);
+                return addressResult.success ? addressResult.value : value;
+
+            case ColumnType.NUMBER:
+                return this.cleanNumber(value).value || value;
+
+            case ColumnType.TEXT:
+            default:
+                return this.cleanText(value).value || value;
+        }
+    }
+
+    /**
+     * Clean a single field based on its type (legacy method)
+     * @param fieldName - Name of the field
+     * @param value - Original field value
+     * @param columnType - Type of the column
+     * @returns CleanResult with cleaned value or error
+     */
+    private cleanFieldLegacy(fieldName: string, value: any, columnType: ColumnType): CleanResult<any> {
         // Handle empty values - for most types, empty is acceptable
         if (value === null || value === undefined || value === '') {
             // For required fields, we might want to mark as error
@@ -433,6 +1042,68 @@ export class DataCleanerService {
             case ColumnType.TEXT:
             default:
                 return this.cleanText(value);
+        }
+    }
+
+    /**
+     * Initialize configuration manager
+     */
+    private async initializeConfigurationManager(): Promise<void> {
+        try {
+            await this.configurationManager.initialize();
+            this.logger.log('Configuration manager initialized successfully');
+
+            // 监听配置变更事件
+            this.configurationManager.on('configurationChanged', (event) => {
+                this.logger.log(`Configuration changed: ${event.type} - ${event.version}`);
+                if (event.success) {
+                    this.logger.log('New configuration is now active for data cleaning');
+                }
+            });
+
+            // 记录当前配置信息
+            const currentConfig = this.configurationManager.getCurrentConfiguration();
+            this.logger.log(`Current configuration loaded: ${currentConfig.metadata.name} v${currentConfig.metadata.version}`);
+
+            // 检查手机号规则
+            const phoneRules = currentConfig.fieldRules['phone'] || currentConfig.fieldRules['手机号'] || [];
+            this.logger.log(`Phone validation rules count: ${phoneRules.length}`);
+            if (phoneRules.length > 0) {
+                phoneRules.forEach((rule, index) => {
+                    this.logger.log(`  Rule ${index + 1}: ${rule.name} (${rule.strategy})`);
+                });
+            }
+
+        } catch (error) {
+            this.logger.error('Failed to initialize configuration manager:', error);
+            // 不抛出错误，允许服务继续运行使用默认配置
+        }
+    }
+
+    /**
+     * Ensure that all required strategies are registered
+     */
+    private ensureStrategiesRegistered(): void {
+        try {
+            const status = this.strategyRegistration.getRegistrationStatus();
+            this.logger.log(
+                `Strategy registration status: ${status.totalStrategies} total strategies, ` +
+                `${status.nativeStrategies.length} native, ${status.adapterStrategies.length} adapters`
+            );
+
+            // Verify that required adapter strategies are registered
+            const requiredAdapters = ['phone-cleaner', 'date-cleaner', 'address-cleaner'];
+            const missingAdapters = requiredAdapters.filter(name => !status.adapterStrategies.includes(name));
+
+            if (missingAdapters.length > 0) {
+                this.logger.warn(`Missing required adapter strategies: ${missingAdapters.join(', ')}`);
+                // Attempt to re-register strategies
+                this.strategyRegistration.reregisterStrategies().catch(error => {
+                    this.logger.error('Failed to re-register strategies:', error);
+                });
+            }
+        } catch (error) {
+            this.logger.error('Failed to check strategy registration status:', error);
         }
     }
 
@@ -518,7 +1189,7 @@ export class DataCleanerService {
             rowNumber,
             name: cleanedData['姓名'] || cleanedData['name'] || cleanedData['名字'] || null,
             phone: cleanedData['手机号'] || cleanedData['手机号码'] || cleanedData['phone'] || cleanedData['电话'] || null,
-            date: cleanedData['日期'] || cleanedData['入职日期'] || cleanedData['date'] || cleanedData['时间'] || null,
+            hireDate: cleanedData['日期'] || cleanedData['入职日期'] || cleanedData['date'] || cleanedData['时间'] || null,
             province: cleanedData['省'] || cleanedData['province'] || null,
             city: cleanedData['市'] || cleanedData['city'] || null,
             district: cleanedData['区'] || cleanedData['district'] || null,
@@ -575,5 +1246,115 @@ export class DataCleanerService {
             const v = c === 'x' ? r : (r & 0x3 | 0x8);
             return v.toString(16);
         });
+    }
+
+    /**
+     * Get current migration configuration
+     * @returns Migration configuration information
+     */
+    getMigrationConfig(): {
+        useRuleEngine: boolean;
+        migrationMode: string;
+        ruleEngineFieldTypes: string[];
+        strategyStatus: any;
+    } {
+        return {
+            useRuleEngine: USE_RULE_ENGINE,
+            migrationMode: MIGRATION_MODE,
+            ruleEngineFieldTypes: Array.from(RULE_ENGINE_FIELD_TYPES),
+            strategyStatus: this.strategyRegistration.getRegistrationStatus()
+        };
+    }
+
+    /**
+     * Update migration mode at runtime (for testing and gradual rollout)
+     * @param mode New migration mode
+     */
+    setMigrationMode(mode: MigrationMode): void {
+        // Note: This would require updating the environment variable or configuration
+        // For now, we'll just log the request
+        this.logger.log(`Migration mode change requested: ${MIGRATION_MODE} -> ${mode}`);
+        this.logger.warn('Migration mode change requires service restart to take effect');
+    }
+
+    /**
+     * Test rule engine functionality with sample data
+     * @param sampleData Sample row data for testing
+     * @param columnTypes Column type mapping
+     * @returns Test results
+     */
+    async testRuleEngine(
+        sampleData: Record<string, any>,
+        columnTypes: ColumnTypeMap
+    ): Promise<{
+        ruleEngineResult?: any;
+        legacyResult: any;
+        comparison: {
+            fieldsMatch: boolean;
+            differences: string[];
+            performance: {
+                ruleEngineTime?: number;
+                legacyTime: number;
+            };
+        };
+    }> {
+        const testRow: RowData = {
+            rowNumber: 1,
+            data: sampleData
+        };
+
+        // Test legacy approach
+        const legacyStart = Date.now();
+        const legacyResult = this.cleanRowLegacy(testRow, columnTypes);
+        const legacyTime = Date.now() - legacyStart;
+
+        let ruleEngineResult: any;
+        let ruleEngineTime: number | undefined;
+
+        // Test rule engine approach if enabled
+        if (USE_RULE_ENGINE) {
+            try {
+                const ruleEngineStart = Date.now();
+                ruleEngineResult = await this.cleanRowWithRuleEngine(testRow, columnTypes);
+                ruleEngineTime = Date.now() - ruleEngineStart;
+            } catch (error) {
+                this.logger.error('Rule engine test failed:', error);
+                ruleEngineResult = { error: error.message };
+            }
+        }
+
+        // Compare results
+        const differences: string[] = [];
+        let fieldsMatch = true;
+
+        if (ruleEngineResult && !ruleEngineResult.error) {
+            // Compare cleaned data
+            for (const [field, legacyValue] of Object.entries(legacyResult.cleanedData)) {
+                const ruleEngineValue = ruleEngineResult.cleanedData[field];
+                if (JSON.stringify(legacyValue) !== JSON.stringify(ruleEngineValue)) {
+                    fieldsMatch = false;
+                    differences.push(`Field ${field}: legacy=${JSON.stringify(legacyValue)}, rule_engine=${JSON.stringify(ruleEngineValue)}`);
+                }
+            }
+
+            // Compare error counts
+            if (legacyResult.errors.length !== ruleEngineResult.errors.length) {
+                fieldsMatch = false;
+                differences.push(`Error count: legacy=${legacyResult.errors.length}, rule_engine=${ruleEngineResult.errors.length}`);
+            }
+        }
+
+        return {
+            ruleEngineResult,
+            legacyResult,
+            comparison: {
+                fieldsMatch,
+                differences,
+                performance: {
+                    ruleEngineTime,
+                    legacyTime
+                }
+            }
+        };
     }
 }

@@ -2,6 +2,12 @@
  * Common types and interfaces used across the application
  */
 
+// Export field mapping types
+export * from './field-mapping.types';
+
+// Export rule engine types
+export * from './rule-engine.types';
+
 // File status enum
 export enum FileStatus {
     PENDING = 'pending',
@@ -34,12 +40,22 @@ export interface AddressComponents {
     detail?: string;
 }
 
-// Field error interface
+// Field error interface with enhanced error details
 export interface FieldError {
     field: string;
     originalValue: any;
     errorType: string;
     errorMessage: string;
+    // 新增字段以支持详细错误信息
+    rule?: string;
+    expectedFormat?: string;
+    validationContext?: {
+        ruleName?: string;
+        strategy?: string;
+        parameters?: Record<string, any>;
+        timestamp?: string;
+        errorCode?: string;
+    };
 }
 
 // Statistics interface

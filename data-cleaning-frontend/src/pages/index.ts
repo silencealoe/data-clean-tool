@@ -7,3 +7,4 @@ export { UploadPage } from './upload-page';
 export { FilesPage } from './files-page';
 export { FileDetailPage } from './file-detail-page';
 export { DataTablePage } from './data-table-page';
+export { RuleConfigPage } from './rule-config-page';

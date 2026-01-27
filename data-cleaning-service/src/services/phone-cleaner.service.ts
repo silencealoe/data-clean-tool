@@ -34,6 +34,8 @@ export class PhoneCleanerService {
         // 检查原始格式的有效性，避免类似139-123-45678这样的错误格式
         const validFormatPatterns = [
             /^\d{11}$/,  // 11位连续数字
+            /^\d{8}$/,   // 8位连续数字（新增支持）
+            /^\d{7}$/,   // 7位连续数字（保持兼容）
             /^\d{3}-\d{4}-\d{4}$/,  // 139-1234-5678格式
             /^\d{3}\s\d{4}\s\d{4}$/, // 139 1234 5678格式
             /^\+86\d{11}$/,  // +8613912345678格式
@@ -131,7 +133,8 @@ export class PhoneCleanerService {
 
     /**
      * Validate Chinese landline number
-     * - 7-8 digits for local numbers
+     * - 8 digits for local numbers (updated to support 8-digit phones)
+     * - 7 digits for older local numbers (legacy support)
      * - 10-12 digits for numbers with area code
      * @param phone - Phone number string
      * @returns true if valid Chinese landline number
@@ -139,9 +142,17 @@ export class PhoneCleanerService {
     private validateChineseLandline(phone: string): boolean {
         const length = phone.length;
 
-        // Local landline: 7-8 digits (cannot start with 0 or 1)
+        // Local landline: 7-8 digits
+        // 更新：支持8位电话号码作为有效格式，允许以任何数字开头（除了特殊情况）
         if (length >= 7 && length <= 8) {
-            return /^[2-9]\d{6,7}$/.test(phone);
+            // 8位电话号码：允许所有数字组合
+            if (length === 8) {
+                return /^\d{8}$/.test(phone);
+            }
+            // 7位电话号码：保持原有逻辑，不能以0或1开头
+            if (length === 7) {
+                return /^[2-9]\d{6}$/.test(phone);
+            }
         }
 
         // Landline with area code: 10-12 digits (must start with 0)

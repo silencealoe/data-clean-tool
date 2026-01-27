@@ -40,6 +40,13 @@ export function HomePage() {
             icon: FileText,
             href: '/files',
             color: 'bg-green-500 hover:bg-green-600'
+        },
+        {
+            title: '规则配置',
+            description: '查看和编辑数据清洗规则',
+            icon: BarChart3,
+            href: '/rule-config',
+            color: 'bg-purple-500 hover:bg-purple-600'
         }
     ];
 
@@ -95,7 +102,7 @@ export function HomePage() {
                     <h2 className="text-3xl font-bold text-center bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-gray-300 bg-clip-text text-transparent mb-8">
                         快速开始
                     </h2>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto">
                         {quickActions.map((action, index) => (
                             <Card
                                 key={index}

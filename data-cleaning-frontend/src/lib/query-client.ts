@@ -69,4 +69,12 @@ export const queryKeys = {
     // 数据查询相关
     cleanData: (jobId: string, page: number, pageSize: number) => [...queryKeys.jobs, 'cleanData', jobId, page, pageSize] as const,
     exceptionData: (jobId: string, page: number, pageSize: number) => [...queryKeys.jobs, 'exceptionData', jobId, page, pageSize] as const,
+
+    // 规则配置相关
+    ruleConfig: {
+        all: ['rule-config'] as const,
+        current: () => [...queryKeys.ruleConfig.all, 'current'] as const,
+        history: (limit?: number) => [...queryKeys.ruleConfig.all, 'history', limit] as const,
+        stats: () => [...queryKeys.ruleConfig.all, 'stats'] as const,
+    },
 } as const;

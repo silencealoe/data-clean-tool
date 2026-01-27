@@ -117,6 +117,13 @@ export interface ApiClient {
     downloadExceptionData(jobId: string): Promise<Blob>;
     getCleanDataPaginated(jobId: string, page: number, pageSize: number): Promise<PaginatedDataResponse>;
     getExceptionDataPaginated(jobId: string, page: number, pageSize: number): Promise<PaginatedDataResponse>;
+
+    // Rule Configuration API methods
+    getCurrentRuleConfig(): Promise<import('./rule-config').RuleConfigResponse>;
+    updateRuleConfig(config: import('./rule-config').RuleConfiguration, description?: string): Promise<import('./rule-config').RuleConfigResponse>;
+    reloadRuleConfig(): Promise<import('./rule-config').RuleConfigResponse>;
+    getRuleConfigHistory(limit?: number): Promise<import('./rule-config').ConfigHistoryResponse>;
+    getRuleConfigStats(): Promise<import('./rule-config').ConfigStatsResponse>;
 }
 
 // 文件验证结果接口
@@ -138,4 +145,54 @@ export interface FileFilters {
     status?: FileStatus;
     startDate?: string;
     endDate?: string;
+}
+
+// 进度查询响应接口
+export interface ProgressResponse {
+    jobId: string;
+    overallProgress: number;
+    processedRows: number;
+    totalRows: number;
+    workerProgress: WorkerProgress[];
+    isProcessing: boolean;
+    message?: string;
+    statistics?: ProcessingStatistics;  // 添加统计信息（任务完成时提供）
+}
+
+// 工作线程进度接口
+export interface WorkerProgress {
+    workerId: number;
+    progress: number;
+    processedRows: number;
+    totalRows: number;
+}
+
+// 性能指标响应接口
+export interface MetricsResponse {
+    jobId: string;
+    cpuUsage: number;
+    memoryUsage: number;
+    throughput: number;
+    workerCount: number;
+    timestamp: string;
+    isProcessing: boolean;
+    message?: string;
+}
+
+// 性能报告响应接口
+export interface PerformanceReportResponse {
+    jobId: string;
+    processingMode: 'parallel' | 'sequential';
+    workerCount: number;
+    avgCpuUsage: number;
+    peakCpuUsage: number;
+    avgMemoryUsage: number;
+    peakMemoryUsage: number;
+    avgThroughput: number;
+    peakThroughput: number;
+    processingTimeMs: number;
+    totalRows: number;
+    successCount: number;
+    errorCount: number;
+    message?: string;
 }

@@ -1,0 +1,131 @@
+{
+    "metadata": {
+        "name": "lenient-cleaning-rules",
+        "description": "宽松模式数据清洗规则配置，用于数据质量要求较低的场景",
+        "version": "1.0.0",
+        "priority": 50,
+        "author": "Data Cleaning Service",
+        "createdAt": "2024-01-01T00:00:00Z",
+        "updatedAt": "2024-01-01T00:00:00Z"
+    },
+    "fieldRules": {
+        "phone": [
+            {
+                "name": "lenient-phone-validation",
+                "strategy": "length",
+                "params": {
+                    "minLength": 7,
+                    "maxLength": 15
+                },
+                "required": false,
+                "priority": 100,
+                "errorMessage": "电话号码长度应在7-15位之间"
+            }
+        ],
+        "手机号": [
+            {
+                "name": "lenient-phone-validation-chinese",
+                "strategy": "length",
+                "params": {
+                    "minLength": 7,
+                    "maxLength": 15
+                },
+                "required": false,
+                "priority": 100,
+                "errorMessage": "手机号长度应在7-15位之间"
+            }
+        ],
+        "date": [
+            {
+                "name": "lenient-date-validation",
+                "strategy": "date-cleaner",
+                "params": {
+                    "formats": [
+                        "YYYY-MM-DD",
+                        "YYYY/MM/DD",
+                        "YYYY年MM月DD日",
+                        "MM/DD/YYYY",
+                        "DD/MM/YYYY",
+                        "YYYY-M-D",
+                        "YYYY/M/D",
+                        "M/D/YYYY",
+                        "M-D-YYYY",
+                        "YYYY年M月D日"
+                    ],
+                    "minYear": 1800,
+                    "maxYear": 2200,
+                    "timezone": "Asia/Shanghai",
+                    "supportExcelSerial": true,
+                    "supportTimestamp": true
+                },
+                "required": false,
+                "priority": 100,
+                "errorMessage": "日期格式不正确"
+            }
+        ],
+        "address": [
+            {
+                "name": "lenient-address-validation",
+                "strategy": "length",
+                "params": {
+                    "minLength": 5,
+                    "maxLength": 200
+                },
+                "required": false,
+                "priority": 100,
+                "errorMessage": "地址长度应在5-200字符之间"
+            }
+        ],
+        "email": [
+            {
+                "name": "lenient-email-validation",
+                "strategy": "regex",
+                "params": {
+                    "pattern": ".*@.*\\..+",
+                    "flags": "i"
+                },
+                "required": false,
+                "priority": 100,
+                "errorMessage": "邮箱格式不正确"
+            }
+        ],
+        "姓名": [
+            {
+                "name": "lenient-name-validation",
+                "strategy": "length",
+                "params": {
+                    "minLength": 1,
+                    "maxLength": 50
+                },
+                "required": false,
+                "priority": 100,
+                "errorMessage": "姓名长度应在1-50字符之间"
+            }
+        ],
+        "年龄": [
+            {
+                "name": "lenient-age-validation",
+                "strategy": "range",
+                "params": {
+                    "min": 0,
+                    "max": 200,
+                    "inclusive": true
+                },
+                "required": false,
+                "priority": 100,
+                "errorMessage": "年龄应在0-200岁之间"
+            }
+        ]
+    },
+    "globalSettings": {
+        "strictMode": false,
+        "continueOnError": true,
+        "maxErrors": 100,
+        "enableCaching": true,
+        "cacheTimeout": 7200,
+        "parallelProcessing": true,
+        "maxParallelTasks": 8,
+        "logLevel": "warn",
+        "enablePerformanceMonitoring": false
+    }
+}

@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import * as fs from 'fs';
 import * as path from 'path';
-import * as csv from 'csv-parser';
+import csv from 'csv-parser';
 import * as iconv from 'iconv-lite';
 import { Readable } from 'stream';
 import { ParsedData, SheetData, RowData, ColumnTypeMap, ColumnType } from '../common/types';

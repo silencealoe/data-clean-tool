@@ -2,6 +2,9 @@
  * Application constants
  */
 
+// Export rule engine constants
+export * from './rule-engine.constants';
+
 // Allowed file MIME types
 export const ALLOWED_MIME_TYPES = [
     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx

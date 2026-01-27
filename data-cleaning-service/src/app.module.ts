@@ -4,19 +4,37 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { DataCleaningController } from './data-cleaning.controller';
+import { RuleConfigController } from './rule-config.controller';
 import { FileRecord, CleanData, ErrorLog } from './entities';
 import {
-    FileRecordService,
-    FileService,
-    DateCleanerService,
-    AddressCleanerService,
-    PhoneCleanerService,
-    ParserService,
-    StreamParserService,
-    DataCleanerService,
-    ExportService,
-    DatabasePersistenceService
+  FileRecordService,
+  FileService,
+  DateCleanerService,
+  AddressCleanerService,
+  PhoneCleanerService,
+  ParserService,
+  StreamParserService,
+  DataCleanerService,
+  ExportService,
+  DatabasePersistenceService,
+  RuleEngineService,
+  FieldProcessorService,
+  RuleLoaderService,
+  ConfigValidatorService,
+  StrategyFactoryService,
+  StrategyRegistrationService
 } from './services';
+import { ConfigurationManagerService } from './services/rule-engine/configuration-manager.service';
+import { StrategyCacheService } from './services/rule-engine/strategy-cache.service';
+import { ParallelProcessorService } from './services/rule-engine/parallel-processor.service';
+import { ConfigValidationToolService } from './services/rule-engine/config-validation-tool.service';
+import { ParallelProcessingManagerService } from './services/parallel/parallel-processing-manager.service';
+import { ChunkSplitterService } from './services/parallel/chunk-splitter.service';
+import { WorkerPoolService } from './services/parallel/worker-pool.service';
+import { ResultCollectorService } from './services/parallel/result-collector.service';
+import { ProgressTrackerService } from './services/parallel/progress-tracker.service';
+import { PerformanceMonitorService } from './services/parallel/performance-monitor.service';
+import { ResourceMonitorService } from './services/parallel/resource-monitor.service';
 
 @Module({
   imports: [
@@ -47,6 +65,8 @@ import {
         charset: 'utf8mb4',
         extra: {
           charset: 'utf8mb4_unicode_ci',
+          connectionLimit: 100, // 连接池（增加到100以支持更高并发）
+          queueLimit: 0,
         },
       }),
       inject: [ConfigService],
@@ -55,7 +75,7 @@ import {
     // Configure TypeORM for entities
     TypeOrmModule.forFeature([FileRecord, CleanData, ErrorLog]),
   ],
-  controllers: [AppController, DataCleaningController],
+  controllers: [AppController, DataCleaningController, RuleConfigController],
   providers: [
     AppService,
     FileRecordService,
@@ -67,7 +87,26 @@ import {
     StreamParserService,
     DataCleanerService,
     ExportService,
-    DatabasePersistenceService
+    DatabasePersistenceService,
+    // Rule Engine Services
+    RuleEngineService,
+    FieldProcessorService,
+    RuleLoaderService,
+    ConfigValidatorService,
+    StrategyFactoryService,
+    StrategyRegistrationService,
+    ConfigurationManagerService,
+    StrategyCacheService,
+    ParallelProcessorService,
+    ConfigValidationToolService,
+    // 并行处理服务
+    ParallelProcessingManagerService,
+    ChunkSplitterService,
+    WorkerPoolService,
+    ResultCollectorService,
+    ProgressTrackerService,
+    PerformanceMonitorService,
+    ResourceMonitorService,
   ],
 })
 export class AppModule { }

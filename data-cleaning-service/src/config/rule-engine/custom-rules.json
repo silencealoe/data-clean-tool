@@ -1,0 +1,66 @@
+{
+    "metadata": {
+        "name": "custom-cleaning-rules",
+        "description": "自定义数据清洗规则配置，优先级高于默认配置",
+        "version": "1.0.0",
+        "priority": 200,
+        "author": "Data Cleaning Service",
+        "createdAt": "2024-01-01T00:00:00Z",
+        "updatedAt": "2024-01-01T00:00:00Z"
+    },
+    "fieldRules": {
+        "phone": [
+            {
+                "name": "enhanced-phone-validation",
+                "strategy": "regex",
+                "params": {
+                    "pattern": "^(\\d{11}|\\d{8}|\\d{7}|\\d{3}-\\d{4}-\\d{4}|\\d{3}\\s\\d{4}\\s\\d{4}|\\+86\\d{11}|\\+86-\\d{11}|\\+86\\s\\d{11}|0\\d{2,3}-\\d{7,8})$",
+                    "flags": ""
+                },
+                "required": true,
+                "priority": 100,
+                "errorMessage": "手机号格式不正确，支持7位、8位、11位数字或带格式的号码"
+            }
+        ],
+        "手机号": [
+            {
+                "name": "enhanced-phone-validation-chinese",
+                "strategy": "regex",
+                "params": {
+                    "pattern": "^(\\d{11}|\\d{8}|\\d{7}|\\d{3}-\\d{4}-\\d{4}|\\d{3}\\s\\d{4}\\s\\d{4}|\\+86\\d{11}|\\+86-\\d{11}|\\+86\\s\\d{11}|0\\d{2,3}-\\d{7,8})$",
+                    "flags": ""
+                },
+                "required": true,
+                "priority": 100,
+                "errorMessage": "手机号格式不正确，支持7位、8位、11位数字或带格式的号码"
+            }
+        ],
+        "手机号码": [
+            {
+                "name": "enhanced-phone-validation-chinese-full",
+                "strategy": "phone-cleaner",
+                "params": {
+                    "removeSpaces": true,
+                    "removeDashes": true,
+                    "removeCountryCode": false,
+                    "allowLandline": true,
+                    "support8Digit": true
+                },
+                "required": true,
+                "priority": 100,
+                "errorMessage": "手机号码格式不正确，支持多种格式"
+            }
+        ]
+    },
+    "globalSettings": {
+        "strictMode": false,
+        "continueOnError": true,
+        "maxErrors": 10,
+        "enableCaching": true,
+        "cacheTimeout": 3600,
+        "parallelProcessing": true,
+        "maxParallelTasks": 4,
+        "logLevel": "info",
+        "enablePerformanceMonitoring": true
+    }
+}

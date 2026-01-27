@@ -7,6 +7,7 @@ import { useEffect } from 'react';
 import { CheckCircle, XCircle, Clock, BarChart3, AlertCircle, RefreshCw } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useJobStatus } from '../hooks/use-job-status';
+import { useProgress } from '../hooks/use-progress';
 import { Button } from './ui/button';
 import { Progress } from './ui/progress';
 import { Alert, AlertDescription } from './ui/alert';
@@ -45,6 +46,15 @@ export function StatusMonitor({
         enabled: !!jobId,
         pollingInterval: 2000,
         stopPollingOnCompleted: true
+    });
+
+    // 使用新的进度API获取实时进度
+    const {
+        data: progressData
+    } = useProgress({
+        jobId,
+        enabled: !!jobId && statusData?.status === 'processing',
+        refetchInterval: 2000
     });
 
     // 通知父组件状态变化
@@ -191,6 +201,11 @@ export function StatusMonitor({
 
     const { status, progress, statistics } = statusData;
 
+    // 如果有实时进度数据，使用实时进度
+    const displayProgress = progressData?.overallProgress ?? progress;
+    const displayProcessedRows = progressData?.processedRows;
+    const displayTotalRows = progressData?.totalRows;
+
     return (
         <div className={cn('w-full space-y-4', className)}>
             {/* 主状态卡片 */}
@@ -205,15 +220,23 @@ export function StatusMonitor({
                     </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
+                    {/* 单一进度条 */}
                     <div className="space-y-2">
                         <div className="flex items-center justify-between mb-2">
                             <span className="text-sm font-medium">{getStatusText(status)}</span>
-                            <span className="text-sm text-muted-foreground font-mono bg-muted px-2 py-1 rounded">
-                                {progress}%
-                            </span>
+                            <div className="flex items-center space-x-2">
+                                {displayProcessedRows !== undefined && displayTotalRows !== undefined && displayTotalRows > 0 && (
+                                    <span className="text-xs text-muted-foreground">
+                                        {displayProcessedRows.toLocaleString()} / {displayTotalRows.toLocaleString()} 行
+                                    </span>
+                                )}
+                                <span className="text-sm text-muted-foreground font-mono bg-muted px-2 py-1 rounded">
+                                    {displayProgress.toFixed(1)}%
+                                </span>
+                            </div>
                         </div>
                         <div className="relative">
-                            <Progress value={progress} className="w-full h-3 transition-all duration-500" />
+                            <Progress value={displayProgress} className="w-full h-3 transition-all duration-500" />
                             {status === 'processing' && (
                                 <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-pulse rounded-full"></div>
                             )}
@@ -237,20 +260,6 @@ export function StatusMonitor({
                             <RefreshCw className={cn("h-4 w-4 mr-1 transition-transform duration-300", isLoading && "animate-spin")} />
                             刷新状态
                         </Button>
-
-                        {status === 'processing' && (
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={startPolling}
-                                className="transition-all duration-300 hover:scale-105 hover:shadow-md hover:bg-blue-50 dark:hover:bg-blue-950/20"
-                            >
-                                <div className="flex items-center space-x-1">
-                                    <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
-                                    <span>开始自动刷新</span>
-                                </div>
-                            </Button>
-                        )}
                     </div>
                 </CardContent>
             </Card>
@@ -307,26 +316,6 @@ export function StatusMonitor({
                                     <div className="text-sm text-muted-foreground mt-1">{stat.label}</div>
                                 </div>
                             ))}
-                        </div>
-
-                        {/* 处理成功率 */}
-                        <div className="mt-6 pt-4 border-t animate-in fade-in-0 slide-in-from-bottom-2 delay-1200">
-                            <div className="flex items-center justify-between mb-3">
-                                <span className="text-sm font-medium flex items-center space-x-2">
-                                    <div className="w-3 h-3 bg-gradient-to-r from-green-400 to-emerald-500 rounded-full"></div>
-                                    <span>数据清洁率</span>
-                                </span>
-                                <span className="text-sm text-muted-foreground font-mono bg-muted px-2 py-1 rounded">
-                                    {((statistics.cleanedRows / statistics.totalRows) * 100).toFixed(1)}%
-                                </span>
-                            </div>
-                            <div className="relative">
-                                <Progress
-                                    value={(statistics.cleanedRows / statistics.totalRows) * 100}
-                                    className="w-full h-3 transition-all duration-1000"
-                                />
-                                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent animate-pulse rounded-full"></div>
-                            </div>
                         </div>
                     </CardContent>
                 </Card>

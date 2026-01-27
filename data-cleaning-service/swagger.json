@@ -501,6 +501,524 @@
           "data-cleaning"
         ]
       }
+    },
+    "/api/data-cleaning/progress/{jobId}": {
+      "get": {
+        "description": "查询并行处理任务的实时进度信息，包括总体进度和各工作线程进度",
+        "operationId": "DataCleaningController_getProgress",
+        "parameters": [
+          {
+            "name": "jobId",
+            "required": true,
+            "in": "path",
+            "description": "任务ID",
+            "schema": {
+              "example": "job_123456789",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功返回进度信息",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "jobId": {
+                      "type": "string",
+                      "description": "任务ID"
+                    },
+                    "overallProgress": {
+                      "type": "number",
+                      "description": "总体进度百分比 (0-100)"
+                    },
+                    "processedRows": {
+                      "type": "number",
+                      "description": "已处理行数"
+                    },
+                    "totalRows": {
+                      "type": "number",
+                      "description": "总行数"
+                    },
+                    "workerProgress": {
+                      "type": "array",
+                      "description": "各工作线程进度",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "workerId": {
+                            "type": "number",
+                            "description": "工作线程ID"
+                          },
+                          "progress": {
+                            "type": "number",
+                            "description": "进度百分比"
+                          },
+                          "processedRows": {
+                            "type": "number",
+                            "description": "已处理行数"
+                          },
+                          "totalRows": {
+                            "type": "number",
+                            "description": "总行数"
+                          }
+                        }
+                      }
+                    },
+                    "isProcessing": {
+                      "type": "boolean",
+                      "description": "是否正在处理"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "任务不存在或未使用并行处理",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "查询处理进度",
+        "tags": [
+          "data-cleaning"
+        ]
+      }
+    },
+    "/api/data-cleaning/metrics/{jobId}": {
+      "get": {
+        "description": "查询并行处理任务的实时性能指标，包括CPU使用率、内存使用、吞吐量等",
+        "operationId": "DataCleaningController_getMetrics",
+        "parameters": [
+          {
+            "name": "jobId",
+            "required": true,
+            "in": "path",
+            "description": "任务ID",
+            "schema": {
+              "example": "job_123456789",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功返回性能指标",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "jobId": {
+                      "type": "string",
+                      "description": "任务ID"
+                    },
+                    "cpuUsage": {
+                      "type": "number",
+                      "description": "CPU使用率 (%)"
+                    },
+                    "memoryUsage": {
+                      "type": "number",
+                      "description": "内存使用 (MB)"
+                    },
+                    "throughput": {
+                      "type": "number",
+                      "description": "吞吐量 (行/秒)"
+                    },
+                    "workerCount": {
+                      "type": "number",
+                      "description": "工作线程数"
+                    },
+                    "timestamp": {
+                      "type": "string",
+                      "description": "采样时间"
+                    },
+                    "isProcessing": {
+                      "type": "boolean",
+                      "description": "是否正在处理"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "任务不存在或未使用并行处理",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "查询性能指标",
+        "tags": [
+          "data-cleaning"
+        ]
+      }
+    },
+    "/api/data-cleaning/report/{jobId}": {
+      "get": {
+        "description": "查询已完成任务的完整性能报告，包括CPU、内存、吞吐量的平均值和峰值",
+        "operationId": "DataCleaningController_getReport",
+        "parameters": [
+          {
+            "name": "jobId",
+            "required": true,
+            "in": "path",
+            "description": "任务ID",
+            "schema": {
+              "example": "job_123456789",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功返回性能报告",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "jobId": {
+                      "type": "string",
+                      "description": "任务ID"
+                    },
+                    "processingMode": {
+                      "type": "string",
+                      "enum": [
+                        "parallel",
+                        "sequential"
+                      ],
+                      "description": "处理模式"
+                    },
+                    "workerCount": {
+                      "type": "number",
+                      "description": "工作线程数"
+                    },
+                    "avgCpuUsage": {
+                      "type": "number",
+                      "description": "平均CPU使用率 (%)"
+                    },
+                    "peakCpuUsage": {
+                      "type": "number",
+                      "description": "峰值CPU使用率 (%)"
+                    },
+                    "avgMemoryUsage": {
+                      "type": "number",
+                      "description": "平均内存使用 (MB)"
+                    },
+                    "peakMemoryUsage": {
+                      "type": "number",
+                      "description": "峰值内存使用 (MB)"
+                    },
+                    "avgThroughput": {
+                      "type": "number",
+                      "description": "平均吞吐量 (行/秒)"
+                    },
+                    "peakThroughput": {
+                      "type": "number",
+                      "description": "峰值吞吐量 (行/秒)"
+                    },
+                    "processingTimeMs": {
+                      "type": "number",
+                      "description": "处理时间 (毫秒)"
+                    },
+                    "totalRows": {
+                      "type": "number",
+                      "description": "总行数"
+                    },
+                    "successCount": {
+                      "type": "number",
+                      "description": "成功行数"
+                    },
+                    "errorCount": {
+                      "type": "number",
+                      "description": "错误行数"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "任务不存在或未完成",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "查询性能报告",
+        "tags": [
+          "data-cleaning"
+        ]
+      }
+    },
+    "/api/rule-config/current": {
+      "get": {
+        "description": "获取当前生效的规则配置，包含所有字段规则和全局设置",
+        "operationId": "RuleConfigController_getCurrentConfiguration",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "成功返回当前配置",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RuleConfigResponseDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "获取配置失败",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "获取当前规则配置",
+        "tags": [
+          "rule-configuration"
+        ]
+      }
+    },
+    "/api/rule-config/update": {
+      "put": {
+        "description": "更新规则配置并进行验证，支持热重载",
+        "operationId": "RuleConfigController_updateConfiguration",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "description": "配置更新请求",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateConfigRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "配置更新成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RuleConfigResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "配置验证失败",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "配置更新失败",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "更新规则配置",
+        "tags": [
+          "rule-configuration"
+        ]
+      }
+    },
+    "/api/rule-config/reload": {
+      "post": {
+        "description": "从配置源重新加载规则配置",
+        "operationId": "RuleConfigController_reloadConfiguration",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "配置重载成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RuleConfigResponseDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "配置重载失败",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "重新加载配置",
+        "tags": [
+          "rule-configuration"
+        ]
+      }
+    },
+    "/api/rule-config/history": {
+      "get": {
+        "description": "获取规则配置的历史版本记录",
+        "operationId": "RuleConfigController_getConfigurationHistory",
+        "parameters": [
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "返回记录数量限制",
+            "schema": {
+              "example": 10,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功返回配置历史",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConfigHistoryResponseDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "获取配置历史失败",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "获取配置历史",
+        "tags": [
+          "rule-configuration"
+        ]
+      }
+    },
+    "/api/rule-config/rollback": {
+      "post": {
+        "description": "回滚到指定版本或上一个版本的规则配置",
+        "operationId": "RuleConfigController_rollbackConfiguration",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "description": "回滚配置请求",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RollbackConfigRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "配置回滚成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RuleConfigResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "回滚失败，版本不存在或无效",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "配置回滚失败",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "回滚配置",
+        "tags": [
+          "rule-configuration"
+        ]
+      }
+    },
+    "/api/rule-config/stats": {
+      "get": {
+        "description": "获取规则配置的统计信息，包括版本、字段数、规则数等",
+        "operationId": "RuleConfigController_getConfigurationStats",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "成功返回配置统计",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConfigStatsResponseDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "获取配置统计失败",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "获取配置统计",
+        "tags": [
+          "rule-configuration"
+        ]
+      }
     }
   },
   "info": {
@@ -877,6 +1395,259 @@
         },
         "required": [
           "file"
+        ]
+      },
+      "RuleConfigResponseDto": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "description": "操作是否成功",
+            "example": true
+          },
+          "configuration": {
+            "type": "object",
+            "description": "规则配置数据",
+            "additionalProperties": true
+          },
+          "message": {
+            "type": "string",
+            "description": "操作消息",
+            "example": "配置更新成功"
+          },
+          "error": {
+            "type": "string",
+            "description": "错误信息",
+            "example": "配置验证失败"
+          },
+          "metadata": {
+            "type": "object",
+            "description": "操作元数据",
+            "additionalProperties": true
+          }
+        },
+        "required": [
+          "success"
+        ]
+      },
+      "RuleMetadataDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "配置名称"
+          },
+          "description": {
+            "type": "string",
+            "description": "配置描述"
+          },
+          "version": {
+            "type": "string",
+            "description": "配置版本"
+          },
+          "priority": {
+            "type": "number",
+            "description": "优先级"
+          },
+          "author": {
+            "type": "string",
+            "description": "配置作者"
+          },
+          "createdAt": {
+            "type": "string",
+            "description": "创建时间"
+          },
+          "updatedAt": {
+            "type": "string",
+            "description": "更新时间"
+          }
+        },
+        "required": [
+          "name",
+          "description",
+          "version",
+          "priority"
+        ]
+      },
+      "GlobalSettingsDto": {
+        "type": "object",
+        "properties": {
+          "strictMode": {
+            "type": "boolean",
+            "description": "严格模式"
+          },
+          "continueOnError": {
+            "type": "boolean",
+            "description": "错误时继续"
+          },
+          "maxErrors": {
+            "type": "number",
+            "description": "最大错误数"
+          },
+          "enableCaching": {
+            "type": "boolean",
+            "description": "启用缓存"
+          },
+          "cacheTimeout": {
+            "type": "number",
+            "description": "缓存超时"
+          },
+          "parallelProcessing": {
+            "type": "boolean",
+            "description": "并行处理"
+          },
+          "maxParallelTasks": {
+            "type": "number",
+            "description": "最大并行任务数"
+          },
+          "logLevel": {
+            "type": "string",
+            "description": "日志级别"
+          },
+          "enablePerformanceMonitoring": {
+            "type": "boolean",
+            "description": "启用性能监控"
+          }
+        },
+        "required": [
+          "strictMode",
+          "continueOnError",
+          "maxErrors"
+        ]
+      },
+      "RuleConfigurationDto": {
+        "type": "object",
+        "properties": {
+          "metadata": {
+            "description": "规则元数据",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RuleMetadataDto"
+              }
+            ]
+          },
+          "fieldRules": {
+            "type": "object",
+            "description": "字段规则映射",
+            "additionalProperties": {
+              "type": "array",
+              "items": {
+                "$ref": "#/components/schemas/FieldRuleDto"
+              }
+            }
+          },
+          "globalSettings": {
+            "description": "全局设置",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/GlobalSettingsDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "metadata",
+          "fieldRules",
+          "globalSettings"
+        ]
+      },
+      "UpdateConfigRequestDto": {
+        "type": "object",
+        "properties": {
+          "configuration": {
+            "description": "规则配置",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RuleConfigurationDto"
+              }
+            ]
+          },
+          "description": {
+            "type": "string",
+            "description": "更新描述",
+            "example": "更新手机号验证规则"
+          }
+        },
+        "required": [
+          "configuration"
+        ]
+      },
+      "ConfigHistoryResponseDto": {
+        "type": "object",
+        "properties": {
+          "history": {
+            "type": "array",
+            "description": "历史配置列表",
+            "items": {
+              "type": "object"
+            }
+          },
+          "total": {
+            "type": "number",
+            "description": "历史记录总数",
+            "example": 5
+          }
+        },
+        "required": [
+          "history",
+          "total"
+        ]
+      },
+      "RollbackConfigRequestDto": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "string",
+            "description": "要回滚到的版本号，不提供则回滚到上一版本",
+            "example": "1.0.0"
+          },
+          "reason": {
+            "type": "string",
+            "description": "回滚原因",
+            "example": "新配置导致验证错误"
+          }
+        }
+      },
+      "ConfigStatsResponseDto": {
+        "type": "object",
+        "properties": {
+          "currentVersion": {
+            "type": "string",
+            "description": "当前配置版本",
+            "example": "1.0.0"
+          },
+          "historySize": {
+            "type": "number",
+            "description": "历史记录数量",
+            "example": 5
+          },
+          "totalFields": {
+            "type": "number",
+            "description": "配置字段总数",
+            "example": 10
+          },
+          "totalRules": {
+            "type": "number",
+            "description": "规则总数",
+            "example": 25
+          },
+          "lastUpdated": {
+            "type": "string",
+            "description": "最后更新时间",
+            "example": "2024-01-01T00:00:00.000Z"
+          },
+          "isInitialized": {
+            "type": "boolean",
+            "description": "是否已初始化",
+            "example": true
+          }
+        },
+        "required": [
+          "currentVersion",
+          "historySize",
+          "totalFields",
+          "totalRules",
+          "isInitialized"
         ]
       }
     }

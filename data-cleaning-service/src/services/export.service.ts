@@ -91,7 +91,12 @@ export class ExportService {
         const exceptionRows: ExceptionRow[] = errorLogs.map(log => ({
             rowNumber: log.rowNumber,
             originalData: log.originalData as Record<string, any>,
-            errors: log.errors as any[],
+            errors: [{
+                field: 'multiple',
+                originalValue: log.originalData,
+                errorType: 'validation',
+                errorMessage: log.errors, // errors 现在是字符串
+            }],
         }));
 
         // 准备导出数据
@@ -113,14 +118,14 @@ export class ExportService {
      */
     private cleanDataToRecord(cleanData: CleanData, headers: string[]): Record<string, any> {
         const record: Record<string, any> = {};
-        
+
         for (const header of headers) {
             // 从CleanData实体中提取对应的字段
             if (cleanData[header as keyof CleanData] !== undefined) {
                 record[header] = cleanData[header as keyof CleanData];
             }
         }
-        
+
         return record;
     }
 

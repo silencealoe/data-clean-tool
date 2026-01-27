@@ -1,0 +1,400 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "Rule Configuration Schema",
+    "description": "JSON schema for validating dynamic rule engine configurations",
+    "type": "object",
+    "required": [
+        "metadata",
+        "fieldRules",
+        "globalSettings"
+    ],
+    "properties": {
+        "metadata": {
+            "type": "object",
+            "required": [
+                "name",
+                "description",
+                "version",
+                "priority"
+            ],
+            "properties": {
+                "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "Rule configuration name"
+                },
+                "description": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "Rule configuration description"
+                },
+                "version": {
+                    "type": "string",
+                    "pattern": "^\\d+\\.\\d+\\.\\d+$",
+                    "description": "Semantic version string"
+                },
+                "priority": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 1000,
+                    "description": "Rule priority (higher numbers take precedence)"
+                },
+                "author": {
+                    "type": "string",
+                    "description": "Configuration author"
+                },
+                "createdAt": {
+                    "type": "string",
+                    "format": "date-time",
+                    "description": "Creation timestamp"
+                },
+                "updatedAt": {
+                    "type": "string",
+                    "format": "date-time",
+                    "description": "Last update timestamp"
+                }
+            },
+            "additionalProperties": false
+        },
+        "fieldRules": {
+            "type": "object",
+            "patternProperties": {
+                "^.+$": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                        "$ref": "#/definitions/fieldRule"
+                    }
+                }
+            },
+            "additionalProperties": false,
+            "description": "Field rules mapping - field names to validation rules"
+        },
+        "globalSettings": {
+            "type": "object",
+            "required": [
+                "strictMode",
+                "continueOnError",
+                "maxErrors"
+            ],
+            "properties": {
+                "strictMode": {
+                    "type": "boolean",
+                    "description": "Whether to use strict mode validation"
+                },
+                "continueOnError": {
+                    "type": "boolean",
+                    "description": "Whether to continue processing on validation errors"
+                },
+                "maxErrors": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 1000,
+                    "description": "Maximum number of errors to collect before stopping"
+                },
+                "enableCaching": {
+                    "type": "boolean",
+                    "description": "Whether to enable caching mechanism"
+                },
+                "cacheTimeout": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "description": "Cache timeout in seconds"
+                },
+                "parallelProcessing": {
+                    "type": "boolean",
+                    "description": "Whether to enable parallel processing"
+                },
+                "maxParallelTasks": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "description": "Maximum number of parallel tasks"
+                },
+                "logLevel": {
+                    "type": "string",
+                    "enum": [
+                        "error",
+                        "warn",
+                        "info",
+                        "debug"
+                    ],
+                    "description": "Log level for the rule engine"
+                },
+                "enablePerformanceMonitoring": {
+                    "type": "boolean",
+                    "description": "Whether to enable performance monitoring"
+                }
+            },
+            "additionalProperties": false
+        }
+    },
+    "additionalProperties": false,
+    "definitions": {
+        "fieldRule": {
+            "type": "object",
+            "required": [
+                "name",
+                "strategy",
+                "params",
+                "required"
+            ],
+            "properties": {
+                "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "Rule name for identification"
+                },
+                "strategy": {
+                    "type": "string",
+                    "enum": [
+                        "regex",
+                        "range",
+                        "length",
+                        "phone-cleaner",
+                        "date-cleaner",
+                        "address-cleaner",
+                        "custom"
+                    ],
+                    "description": "Validation strategy type"
+                },
+                "params": {
+                    "type": "object",
+                    "description": "Parameters for the validation strategy"
+                },
+                "required": {
+                    "type": "boolean",
+                    "description": "Whether this rule is required"
+                },
+                "priority": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 1000,
+                    "description": "Rule priority (higher numbers take precedence)"
+                },
+                "errorMessage": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "Custom error message template"
+                },
+                "condition": {
+                    "$ref": "#/definitions/ruleCondition",
+                    "description": "Rule condition for conditional validation"
+                }
+            },
+            "additionalProperties": false
+        },
+        "ruleCondition": {
+            "type": "object",
+            "required": [
+                "field",
+                "operator",
+                "value"
+            ],
+            "properties": {
+                "field": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "Field to check condition against"
+                },
+                "operator": {
+                    "type": "string",
+                    "enum": [
+                        "equals",
+                        "not_equals",
+                        "greater_than",
+                        "less_than",
+                        "contains",
+                        "not_contains",
+                        "is_empty",
+                        "is_not_empty"
+                    ],
+                    "description": "Condition operator"
+                },
+                "value": {
+                    "description": "Value to compare against"
+                }
+            },
+            "additionalProperties": false
+        },
+        "regexParams": {
+            "type": "object",
+            "required": [
+                "pattern"
+            ],
+            "properties": {
+                "pattern": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "Regular expression pattern"
+                },
+                "flags": {
+                    "type": "string",
+                    "pattern": "^[gimsuvy]*$",
+                    "description": "Regular expression flags"
+                },
+                "multiline": {
+                    "type": "boolean",
+                    "description": "Whether to use multiline mode"
+                }
+            },
+            "additionalProperties": false
+        },
+        "rangeParams": {
+            "type": "object",
+            "properties": {
+                "min": {
+                    "type": "number",
+                    "description": "Minimum value"
+                },
+                "max": {
+                    "type": "number",
+                    "description": "Maximum value"
+                },
+                "inclusive": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Whether range bounds are inclusive"
+                }
+            },
+            "additionalProperties": false,
+            "anyOf": [
+                {
+                    "required": [
+                        "min"
+                    ]
+                },
+                {
+                    "required": [
+                        "max"
+                    ]
+                }
+            ]
+        },
+        "lengthParams": {
+            "type": "object",
+            "properties": {
+                "minLength": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": "Minimum length"
+                },
+                "maxLength": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": "Maximum length"
+                },
+                "exactLength": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": "Exact length requirement"
+                }
+            },
+            "additionalProperties": false,
+            "anyOf": [
+                {
+                    "required": [
+                        "minLength"
+                    ]
+                },
+                {
+                    "required": [
+                        "maxLength"
+                    ]
+                },
+                {
+                    "required": [
+                        "exactLength"
+                    ]
+                }
+            ]
+        },
+        "phoneParams": {
+            "type": "object",
+            "properties": {
+                "removeSpaces": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Whether to remove spaces during cleaning"
+                },
+                "removeDashes": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Whether to remove dashes during cleaning"
+                },
+                "removeCountryCode": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Whether to remove country code during cleaning"
+                },
+                "allowLandline": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Whether to allow landline numbers"
+                }
+            },
+            "additionalProperties": false
+        },
+        "dateParams": {
+            "type": "object",
+            "properties": {
+                "formats": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "minItems": 1,
+                    "description": "Accepted date formats"
+                },
+                "minYear": {
+                    "type": "integer",
+                    "minimum": 1000,
+                    "maximum": 9999,
+                    "description": "Minimum year allowed"
+                },
+                "maxYear": {
+                    "type": "integer",
+                    "minimum": 1000,
+                    "maximum": 9999,
+                    "description": "Maximum year allowed"
+                },
+                "timezone": {
+                    "type": "string",
+                    "description": "Timezone for date processing"
+                }
+            },
+            "additionalProperties": false
+        },
+        "addressParams": {
+            "type": "object",
+            "properties": {
+                "requireProvince": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Whether province is required"
+                },
+                "requireCity": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Whether city is required"
+                },
+                "requireDistrict": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Whether district is required"
+                },
+                "validateComponents": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Whether to validate address components"
+                }
+            },
+            "additionalProperties": false
+        },
+        "customParams": {
+            "type": "object",
+            "description": "Flexible parameter structure for custom strategies",
+            "additionalProperties": true
+        }
+    }
+}
