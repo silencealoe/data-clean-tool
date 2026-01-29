@@ -1,11 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import * as ExcelJS from 'exceljs';
 import * as fs from 'fs';
-<<<<<<< HEAD
 import csv from 'csv-parser';
-=======
-import * as csv from 'csv-parser';
->>>>>>> ab86e763c74c7b40cbdb2a6db4337c0e9dcaa40a
 import * as iconv from 'iconv-lite';
 import { Readable } from 'stream';
 import { RowData, ColumnTypeMap, ColumnType } from '../common/types';

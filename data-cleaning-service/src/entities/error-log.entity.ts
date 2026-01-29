@@ -23,17 +23,12 @@ export class ErrorLog {
     @Column({ type: 'json' })
     originalData: Record<string, any>;
 
-<<<<<<< HEAD
     @Column({
         type: 'text',
         charset: 'utf8mb4',
         collation: 'utf8mb4_unicode_ci'
     })
     errors: string;
-=======
-    @Column({ type: 'json' })
-    errors: FieldError[];
->>>>>>> ab86e763c74c7b40cbdb2a6db4337c0e9dcaa40a
 
     @Column({
         type: 'text',

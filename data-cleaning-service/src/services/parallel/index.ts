@@ -14,10 +14,4 @@ export * from './result-collector.service';
 export * from './progress-tracker.service';
 export * from './performance-monitor.service';
 export * from './parallel-processing-manager.service';
-<<<<<<< HEAD
 export * from './resource-monitor.service';
-=======
-
-// 其他服务将在后续任务中添加
-// export * from './resource-monitor.service';
->>>>>>> ab86e763c74c7b40cbdb2a6db4337c0e9dcaa40a

@@ -1189,11 +1189,7 @@ export class DataCleanerService {
             rowNumber,
             name: cleanedData['姓名'] || cleanedData['name'] || cleanedData['名字'] || null,
             phone: cleanedData['手机号'] || cleanedData['手机号码'] || cleanedData['phone'] || cleanedData['电话'] || null,
-<<<<<<< HEAD
             hireDate: cleanedData['日期'] || cleanedData['入职日期'] || cleanedData['date'] || cleanedData['时间'] || null,
-=======
-            date: cleanedData['日期'] || cleanedData['入职日期'] || cleanedData['date'] || cleanedData['时间'] || null,
->>>>>>> ab86e763c74c7b40cbdb2a6db4337c0e9dcaa40a
             province: cleanedData['省'] || cleanedData['province'] || null,
             city: cleanedData['市'] || cleanedData['city'] || null,
             district: cleanedData['区'] || cleanedData['district'] || null,

@@ -36,7 +36,6 @@ export function getWorkerThreadsConfig(): WorkerThreadsConfig {
   const config: WorkerThreadsConfig = {
     // 并行处理设置
     enableParallelProcessing: getEnvBoolean('ENABLE_PARALLEL_PROCESSING', true),
-<<<<<<< HEAD
     workerCount: getEnvNumber('WORKER_COUNT', 8),
     parallelBatchSize: getEnvNumber('PARALLEL_BATCH_SIZE', 20000),  // 优化为20000，目标30秒处理时间
 
@@ -48,36 +47,16 @@ export function getWorkerThreadsConfig(): WorkerThreadsConfig {
     minRecordsForParallel: getEnvNumber('MIN_RECORDS_FOR_PARALLEL', 1000),
     chunkOverlapRows: getEnvNumber('CHUNK_OVERLAP_ROWS', 0),
 
-=======
-    workerCount: getEnvNumber('WORKER_COUNT', 4),
-    parallelBatchSize: getEnvNumber('PARALLEL_BATCH_SIZE', 10000),
-    
-    // 资源限制
-    maxMemoryMB: getEnvNumber('MAX_MEMORY_MB', 1800),
-    workerTimeoutMs: getEnvNumber('WORKER_TIMEOUT_MS', 300000), // 5 分钟
-    
-    // 性能调优
-    minRecordsForParallel: getEnvNumber('MIN_RECORDS_FOR_PARALLEL', 1000),
-    chunkOverlapRows: getEnvNumber('CHUNK_OVERLAP_ROWS', 0),
-    
->>>>>>> ab86e763c74c7b40cbdb2a6db4337c0e9dcaa40a
     // 监控
     enableProgressTracking: getEnvBoolean('ENABLE_PROGRESS_TRACKING', true),
     progressUpdateInterval: getEnvNumber('PROGRESS_UPDATE_INTERVAL_MS', 1000),
     enablePerformanceMonitoring: getEnvBoolean('ENABLE_PERFORMANCE_MONITORING', true),
     performanceSampleInterval: getEnvNumber('PERFORMANCE_SAMPLE_INTERVAL_MS', 1000),
   };
-<<<<<<< HEAD
 
   // 验证配置
   validateConfig(config);
 
-=======
-  
-  // 验证配置
-  validateConfig(config);
-  
->>>>>>> ab86e763c74c7b40cbdb2a6db4337c0e9dcaa40a
   return config;
 }
 
@@ -86,11 +65,6 @@ export function getWorkerThreadsConfig(): WorkerThreadsConfig {
  */
 function validateConfig(config: WorkerThreadsConfig): void {
   const errors: string[] = [];
-<<<<<<< HEAD
-
-=======
-  
->>>>>>> ab86e763c74c7b40cbdb2a6db4337c0e9dcaa40a
   // 验证工作线程数量
   if (config.workerCount < 1) {
     errors.push('WORKER_COUNT 必须 >= 1');
@@ -98,11 +72,6 @@ function validateConfig(config: WorkerThreadsConfig): void {
   if (config.workerCount > 32) {
     errors.push('WORKER_COUNT 不应超过 32（建议 2-8）');
   }
-<<<<<<< HEAD
-
-=======
-  
->>>>>>> ab86e763c74c7b40cbdb2a6db4337c0e9dcaa40a
   // 验证批处理大小
   if (config.parallelBatchSize < 100) {
     errors.push('PARALLEL_BATCH_SIZE 必须 >= 100');
@@ -110,11 +79,6 @@ function validateConfig(config: WorkerThreadsConfig): void {
   if (config.parallelBatchSize > 100000) {
     errors.push('PARALLEL_BATCH_SIZE 不应超过 100000');
   }
-<<<<<<< HEAD
-
-=======
-  
->>>>>>> ab86e763c74c7b40cbdb2a6db4337c0e9dcaa40a
   // 验证内存限制
   if (config.maxMemoryMB < 512) {
     errors.push('MAX_MEMORY_MB 必须 >= 512');
@@ -122,11 +86,6 @@ function validateConfig(config: WorkerThreadsConfig): void {
   if (config.maxMemoryMB > 8192) {
     errors.push('MAX_MEMORY_MB 不应超过 8192');
   }
-<<<<<<< HEAD
-
-=======
-  
->>>>>>> ab86e763c74c7b40cbdb2a6db4337c0e9dcaa40a
   // 验证超时时间
   if (config.workerTimeoutMs < 10000) {
     errors.push('WORKER_TIMEOUT_MS 必须 >= 10000 (10秒)');
@@ -134,20 +93,10 @@ function validateConfig(config: WorkerThreadsConfig): void {
   if (config.workerTimeoutMs > 3600000) {
     errors.push('WORKER_TIMEOUT_MS 不应超过 3600000 (1小时)');
   }
-<<<<<<< HEAD
-
-=======
-  
->>>>>>> ab86e763c74c7b40cbdb2a6db4337c0e9dcaa40a
   // 验证最小并行记录数
   if (config.minRecordsForParallel < 100) {
     errors.push('MIN_RECORDS_FOR_PARALLEL 必须 >= 100');
   }
-<<<<<<< HEAD
-
-=======
-  
->>>>>>> ab86e763c74c7b40cbdb2a6db4337c0e9dcaa40a
   // 验证采样间隔
   if (config.progressUpdateInterval < 100) {
     errors.push('PROGRESS_UPDATE_INTERVAL_MS 必须 >= 100');
@@ -155,11 +104,6 @@ function validateConfig(config: WorkerThreadsConfig): void {
   if (config.performanceSampleInterval < 100) {
     errors.push('PERFORMANCE_SAMPLE_INTERVAL_MS 必须 >= 100');
   }
-<<<<<<< HEAD
-
-=======
-  
->>>>>>> ab86e763c74c7b40cbdb2a6db4337c0e9dcaa40a
   // 如果有错误，抛出异常
   if (errors.length > 0) {
     throw new Error(
@@ -197,20 +141,10 @@ export function shouldUseParallelProcessing(
   if (!config.enableParallelProcessing) {
     return false;
   }
-<<<<<<< HEAD
-
-=======
-  
->>>>>>> ab86e763c74c7b40cbdb2a6db4337c0e9dcaa40a
   // 如果记录数小于最小阈值，返回 false
   if (recordCount < config.minRecordsForParallel) {
     return false;
   }
-<<<<<<< HEAD
-
-=======
-  
->>>>>>> ab86e763c74c7b40cbdb2a6db4337c0e9dcaa40a
   return true;
 }
 
@@ -225,19 +159,11 @@ export function getRecommendedWorkerCount(
   if (recordCount < 10000) {
     return Math.min(2, config.workerCount);
   }
-<<<<<<< HEAD
 
   if (recordCount < 100000) {
     return Math.min(4, config.workerCount);
   }
 
-=======
-  
-  if (recordCount < 100000) {
-    return Math.min(4, config.workerCount);
-  }
-  
->>>>>>> ab86e763c74c7b40cbdb2a6db4337c0e9dcaa40a
   // 对于大文件，使用配置的工作线程数
   return config.workerCount;
 }

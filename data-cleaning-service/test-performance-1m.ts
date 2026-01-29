@@ -110,8 +110,8 @@ async function generateTestFile(): Promise<void> {
     
     writeStream.end();
     
-    await new Promise((resolve, reject) => {
-        writeStream.on('finish', resolve);
+    await new Promise<void>((resolve, reject) => {
+        writeStream.on('finish', () => resolve());
         writeStream.on('error', reject);
     });
     
@@ -174,7 +174,7 @@ async function testProcessingPerformance(): Promise<void> {
         ],
     }).compile();
     
-    const dataCleanerService = moduleRef.get<any>(DataCleanerService);
+    const dataCleanerService = moduleRef.get(DataCleanerService);
     const jobId = `perf-test-${Date.now()}`;
     
     console.log(`📊 Processing file...`);
