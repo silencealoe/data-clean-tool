@@ -8,6 +8,9 @@ export * from './field-mapping.types';
 // Export rule engine types
 export * from './rule-engine.types';
 
+// Export queue types
+export * from './queue.types';
+
 // File status enum
 export enum FileStatus {
     PENDING = 'pending',

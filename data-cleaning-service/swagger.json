@@ -501,7 +501,6 @@
           "data-cleaning"
         ]
       }
-<<<<<<< HEAD
     },
     "/api/data-cleaning/progress/{jobId}": {
       "get": {
@@ -1020,8 +1019,140 @@
           "rule-configuration"
         ]
       }
-=======
->>>>>>> ab86e763c74c7b40cbdb2a6db4337c0e9dcaa40a
+    },
+    "/api/queue/health": {
+      "get": {
+        "operationId": "QueueHealthController_checkHealth",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Queue system health status"
+          }
+        },
+        "summary": "Check queue system health",
+        "tags": [
+          "Queue Health"
+        ]
+      }
+    },
+    "/api/queue/stats": {
+      "get": {
+        "operationId": "QueueHealthController_getStats",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Detailed queue statistics"
+          }
+        },
+        "summary": "Get detailed queue statistics",
+        "tags": [
+          "Queue Health"
+        ]
+      }
+    },
+    "/api/data-cleaning/check-status/{taskId}": {
+      "get": {
+        "description": "根据任务ID查询异步处理任务的状态、进度和统计信息",
+        "operationId": "AsyncProcessingController_checkStatus",
+        "parameters": [
+          {
+            "name": "taskId",
+            "required": true,
+            "in": "path",
+            "description": "任务ID",
+            "schema": {
+              "example": "job_123456789",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功返回任务状态和进度信息",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "taskId": {
+                      "type": "string",
+                      "description": "任务ID"
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "pending",
+                        "processing",
+                        "completed",
+                        "failed",
+                        "timeout"
+                      ],
+                      "description": "任务状态"
+                    },
+                    "progress": {
+                      "type": "number",
+                      "description": "进度百分比 (0-100)"
+                    },
+                    "processedRows": {
+                      "type": "number",
+                      "description": "已处理行数"
+                    },
+                    "totalRows": {
+                      "type": "number",
+                      "description": "总行数"
+                    },
+                    "currentPhase": {
+                      "type": "string",
+                      "description": "当前处理阶段"
+                    },
+                    "estimatedTimeRemaining": {
+                      "type": "number",
+                      "description": "预估剩余时间(毫秒)"
+                    },
+                    "statistics": {
+                      "type": "object",
+                      "description": "处理统计信息"
+                    },
+                    "createdAt": {
+                      "type": "string",
+                      "format": "date-time",
+                      "description": "创建时间"
+                    },
+                    "startedAt": {
+                      "type": "string",
+                      "format": "date-time",
+                      "description": "开始时间"
+                    },
+                    "completedAt": {
+                      "type": "string",
+                      "format": "date-time",
+                      "description": "完成时间"
+                    },
+                    "errorMessage": {
+                      "type": "string",
+                      "description": "错误消息"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "任务不存在",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "查询任务状态和进度",
+        "tags": [
+          "async-processing"
+        ]
+      }
     }
   },
   "info": {
@@ -1067,6 +1198,11 @@
             "description": "任务ID，用于后续查询处理状态",
             "example": "job_123456789"
           },
+          "taskId": {
+            "type": "string",
+            "description": "任务ID的别名，与jobId相同，用于异步处理状态查询",
+            "example": "job_123456789"
+          },
           "fileId": {
             "type": "string",
             "description": "文件ID，用于文件管理",
@@ -1081,6 +1217,17 @@
             "type": "number",
             "description": "文件总行数",
             "example": 1000
+          },
+          "status": {
+            "type": "string",
+            "description": "处理状态",
+            "enum": [
+              "pending",
+              "processing",
+              "completed",
+              "failed"
+            ],
+            "example": "pending"
           }
         },
         "required": [

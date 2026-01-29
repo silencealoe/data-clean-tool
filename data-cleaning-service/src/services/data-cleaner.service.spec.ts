@@ -3,6 +3,13 @@ import { DataCleanerService } from './data-cleaner.service';
 import { PhoneCleanerService } from './phone-cleaner.service';
 import { DateCleanerService } from './date-cleaner.service';
 import { AddressCleanerService } from './address-cleaner.service';
+import { StreamParserService } from './stream-parser.service';
+import { DatabasePersistenceService } from './database-persistence.service';
+import { ParallelProcessingManagerService } from './parallel/parallel-processing-manager.service';
+import { RuleEngineService } from './rule-engine/rule-engine.service';
+import { StrategyRegistrationService } from './rule-engine/strategy-registration.service';
+import { ConfigurationManagerService } from './rule-engine/configuration-manager.service';
+import { ProgressTrackerService as AsyncProgressTrackerService } from './progress-tracker.service';
 import {
     ParsedData,
     ColumnType,
@@ -24,6 +31,65 @@ describe('DataCleanerService', () => {
                 PhoneCleanerService,
                 DateCleanerService,
                 AddressCleanerService,
+                // Mock the additional dependencies
+                {
+                    provide: StreamParserService,
+                    useValue: {
+                        parseCsvStream: jest.fn(),
+                        parseExcelStream: jest.fn(),
+                    },
+                },
+                {
+                    provide: DatabasePersistenceService,
+                    useValue: {
+                        batchInsertCleanData: jest.fn(),
+                        batchInsertErrorLogs: jest.fn(),
+                    },
+                },
+                {
+                    provide: ParallelProcessingManagerService,
+                    useValue: {
+                        processFile: jest.fn(),
+                    },
+                },
+                {
+                    provide: RuleEngineService,
+                    useValue: {
+                        cleanRow: jest.fn(),
+                    },
+                },
+                {
+                    provide: StrategyRegistrationService,
+                    useValue: {
+                        getRegistrationStatus: jest.fn().mockReturnValue({
+                            totalStrategies: 0,
+                            nativeStrategies: [],
+                            adapterStrategies: [],
+                        }),
+                        reregisterStrategies: jest.fn(),
+                    },
+                },
+                {
+                    provide: ConfigurationManagerService,
+                    useValue: {
+                        initialize: jest.fn(),
+                        getCurrentConfiguration: jest.fn().mockReturnValue({
+                            metadata: { name: 'test', version: '1.0' },
+                            fieldRules: {},
+                        }),
+                        on: jest.fn(),
+                    },
+                },
+                {
+                    provide: AsyncProgressTrackerService,
+                    useValue: {
+                        initializeProgress: jest.fn(),
+                        updateProgress: jest.fn(),
+                        updatePhase: jest.fn(),
+                        markCompleted: jest.fn(),
+                        markFailed: jest.fn(),
+                    },
+                },
             ],
         }).compile();
 

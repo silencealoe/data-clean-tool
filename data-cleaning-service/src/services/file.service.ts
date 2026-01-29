@@ -172,6 +172,20 @@ export class FileService {
     }
 
     /**
+     * Check if file exists
+     * @param filePath - Path to the file
+     * @returns Promise<boolean> - Whether file exists
+     */
+    async fileExists(filePath: string): Promise<boolean> {
+        try {
+            await fs.access(filePath);
+            return true;
+        } catch (error) {
+            return false;
+        }
+    }
+
+    /**
      * Get file information
      * @param filePath - Path to the file
      * @returns Promise<object> - File information

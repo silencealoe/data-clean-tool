@@ -5,6 +5,8 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { DataCleaningController } from './data-cleaning.controller';
 import { RuleConfigController } from './rule-config.controller';
+import { QueueHealthController } from './controllers/queue-health.controller';
+import { AsyncProcessingController } from './async-processing.controller';
 import { FileRecord, CleanData, ErrorLog } from './entities';
 import {
   FileRecordService,
@@ -22,8 +24,11 @@ import {
   RuleLoaderService,
   ConfigValidatorService,
   StrategyFactoryService,
-  StrategyRegistrationService
+  StrategyRegistrationService,
+  TaskProducerService
 } from './services';
+import { QueueManagerService, ErrorHandlerService, TimeoutManagerService } from './services/queue';
+import { ProgressTrackerService as AsyncProgressTrackerService } from './services/progress-tracker.service';
 import { ConfigurationManagerService } from './services/rule-engine/configuration-manager.service';
 import { StrategyCacheService } from './services/rule-engine/strategy-cache.service';
 import { ParallelProcessorService } from './services/rule-engine/parallel-processor.service';
@@ -35,6 +40,9 @@ import { ResultCollectorService } from './services/parallel/result-collector.ser
 import { ProgressTrackerService } from './services/parallel/progress-tracker.service';
 import { PerformanceMonitorService } from './services/parallel/performance-monitor.service';
 import { ResourceMonitorService } from './services/parallel/resource-monitor.service';
+import { RedisModule } from './modules/redis.module';
+import redisConfig from './config/redis.config';
+import queueConfig from './config/queue.config';
 
 @Module({
   imports: [
@@ -42,7 +50,11 @@ import { ResourceMonitorService } from './services/parallel/resource-monitor.ser
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: '.env',
+      load: [redisConfig, queueConfig],
     }),
+
+    // Redis module for queue management
+    RedisModule,
 
     // Configure TypeORM with async configuration
     TypeOrmModule.forRootAsync({
@@ -75,7 +87,7 @@ import { ResourceMonitorService } from './services/parallel/resource-monitor.ser
     // Configure TypeORM for entities
     TypeOrmModule.forFeature([FileRecord, CleanData, ErrorLog]),
   ],
-  controllers: [AppController, DataCleaningController, RuleConfigController],
+  controllers: [AppController, DataCleaningController, RuleConfigController, QueueHealthController, AsyncProcessingController],
   providers: [
     AppService,
     FileRecordService,
@@ -88,6 +100,16 @@ import { ResourceMonitorService } from './services/parallel/resource-monitor.ser
     DataCleanerService,
     ExportService,
     DatabasePersistenceService,
+    // Queue Services
+    QueueManagerService,
+    {
+      provide: 'QueueManagerInterface',
+      useExisting: QueueManagerService,
+    },
+    ErrorHandlerService,
+    TimeoutManagerService,
+    TaskProducerService,
+    AsyncProgressTrackerService,
     // Rule Engine Services
     RuleEngineService,
     FieldProcessorService,

@@ -37,7 +37,8 @@ import {
     FileService,
     ParserService,
     DataCleanerService,
-    ExportService
+    ExportService,
+    TaskProducerService
 } from './services';
 import { ParallelProcessingManagerService } from './services/parallel/parallel-processing-manager.service';
 import { FileStatus, Statistics, ColumnType, ColumnTypeMap } from './common/types';
@@ -60,6 +61,7 @@ export class DataCleaningController {
         private readonly exportService: ExportService,
         private readonly databasePersistence: DatabasePersistenceService,
         private readonly parallelProcessingManager: ParallelProcessingManagerService,
+        private readonly taskProducer: TaskProducerService,
     ) { }
 
     @Post('upload')
@@ -119,16 +121,13 @@ export class DataCleaningController {
                 throw new HttpException('No file uploaded', HttpStatus.BAD_REQUEST);
             }
 
-            const validationResult = this.fileService.validateFile(file);
-            if (!validationResult.isValid) {
-                throw new HttpException(validationResult.error || 'File validation failed', HttpStatus.BAD_REQUEST);
+            // Validate file using TaskProducer
+            if (!this.taskProducer.validateFileForTask(file)) {
+                throw new HttpException('File validation failed', HttpStatus.BAD_REQUEST);
             }
 
             // Generate unique job ID
             const jobId = `job_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-
-            // Save temporary file
-            const tempFilePath = await this.fileService.saveTemporaryFile(file);
 
             // Create file record
             const fileRecord = await this.fileRecordService.createFileRecord({
@@ -139,16 +138,18 @@ export class DataCleaningController {
                 mimeType: file.mimetype,
             });
 
-            // Start processing asynchronously
-            this.processFileAsync(jobId, tempFilePath, fileRecord.id);
+            // Create and enqueue processing task using TaskProducer
+            const taskId = await this.taskProducer.createProcessingTask(file, fileRecord);
 
-            this.logger.log(`文件上传成功，任务ID: ${jobId}`);
+            this.logger.log(`文件上传成功，任务ID: ${taskId}`);
 
             return {
-                jobId,
+                jobId: taskId,
+                taskId: taskId, // Add taskId for async processing compatibility
                 fileId: fileRecord.id,
                 message: '文件上传成功，开始处理',
-                totalRows: 0, // Will be updated after parsing
+                totalRows: 0, // Will be updated during processing
+                status: 'pending', // Add status for async processing
             };
 
         } catch (error) {
@@ -202,7 +203,7 @@ export class DataCleaningController {
             };
 
             // Add statistics if processing is completed
-            if (fileRecord.status === FileStatus.COMPLETED && fileRecord.totalRows !== null) {
+            if (fileRecord.status === FileStatus.COMPLETED && fileRecord.totalRows !== null && fileRecord.totalRows !== undefined) {
                 response.statistics = {
                     totalRows: fileRecord.totalRows,
                     cleanedRows: fileRecord.cleanedRows || 0,
@@ -252,10 +253,10 @@ export class DataCleaningController {
                     fileType: file.fileType,
                     status: file.status,
                     uploadedAt: file.uploadedAt,
-                    completedAt: file.completedAt,
-                    totalRows: file.totalRows,
-                    cleanedRows: file.cleanedRows,
-                    exceptionRows: file.exceptionRows,
+                    completedAt: file.completedAt || null,
+                    totalRows: file.totalRows || null,
+                    cleanedRows: file.cleanedRows || null,
+                    exceptionRows: file.exceptionRows || null,
                 })),
                 total: result.total,
                 page: query.page || 1,
@@ -321,7 +322,7 @@ export class DataCleaningController {
             };
 
             // Add statistics if available
-            if (fileRecord.status === FileStatus.COMPLETED && fileRecord.totalRows !== null) {
+            if (fileRecord.status === FileStatus.COMPLETED && fileRecord.totalRows !== null && fileRecord.totalRows !== undefined) {
                 response.statistics = {
                     totalRows: fileRecord.totalRows,
                     cleanedRows: fileRecord.cleanedRows || 0,
@@ -945,80 +946,6 @@ export class DataCleaningController {
                 'Failed to get performance report',
                 HttpStatus.INTERNAL_SERVER_ERROR
             );
-        }
-    }
-
-    /**
-     * Process file asynchronously
-     */
-    private async processFileAsync(jobId: string, tempFilePath: string, fileRecordId: string): Promise<void> {
-        try {
-            this.logger.log(`开始异步处理文件，任务ID: ${jobId}`);
-
-            // Update status to processing
-            await this.fileRecordService.updateFileStatus(fileRecordId, FileStatus.PROCESSING);
-
-            // ✅ 在实际数据清洗开始时计时（不包含上传时间）
-            const startTime = Date.now();
-
-            // 使用流式处理和数据库持久化
-            this.logger.log(`开始流式处理文件: ${tempFilePath}`);
-            const streamResult = await this.dataCleanerService.cleanDataStream(tempFilePath, jobId);
-
-            // Calculate processing time (纯数据处理时间，不包含上传)
-            const processingTime = Date.now() - startTime;
-            const statistics: Statistics = {
-                totalRows: streamResult.statistics.totalRows,
-                cleanedRows: streamResult.statistics.processedRows,
-                exceptionRows: streamResult.statistics.errorRows,
-                processingTime,
-            };
-
-            // 保存性能报告到缓存（如果有）
-            if (streamResult.performanceMetrics) {
-                this.performanceReportCache.set(jobId, {
-                    ...streamResult.performanceMetrics,
-                    totalRows: streamResult.statistics.totalRows,
-                    successCount: streamResult.statistics.processedRows,
-                    errorCount: streamResult.statistics.errorRows,
-                });
-                this.logger.log(`性能报告已缓存: ${jobId}`);
-            }
-
-            // Update file record with results (without file paths)
-            this.logger.log(`更新文件记录为完成状态`);
-            await this.fileRecordService.updateFileStatus(
-                fileRecordId,
-                FileStatus.COMPLETED,
-                statistics
-            );
-
-            // Clean up temporary file
-            await this.fileService.cleanupFile(tempFilePath);
-
-            this.logger.log(`文件处理完成，任务ID: ${jobId}, 处理时间: ${processingTime}ms`);
-
-        } catch (error) {
-            this.logger.error(`文件处理失败，任务ID: ${jobId}, 错误: ${error.message}`, error.stack);
-
-            // Update file record with error
-            try {
-                const fileRecord = await this.fileRecordService.getFileRecord(fileRecordId);
-                fileRecord.status = FileStatus.FAILED;
-                fileRecord.errorMessage = error.message;
-                fileRecord.completedAt = new Date();
-
-                await this.fileRecordService.updateFileStatus(fileRecordId, FileStatus.FAILED);
-            } catch (updateError) {
-                this.logger.error(`更新错误状态失败: ${updateError.message}`, updateError.stack);
-            }
-
-            // Clean up temporary file
-            try {
-                await this.fileService.cleanupFile(tempFilePath);
-            } catch (cleanupError) {
-                this.logger.error(`清理临时文件失败: ${cleanupError.message}`, cleanupError.stack);
-            }
         }
     }
 

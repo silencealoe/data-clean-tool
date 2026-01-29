@@ -12,4 +12,6 @@ export * from './address-cleaner.service';
 export * from './data-cleaner.service';
 export * from './export.service';
 export * from './database-persistence.service';
+export * from './task-producer.service';
 export * from './rule-engine';
+export * from './queue';

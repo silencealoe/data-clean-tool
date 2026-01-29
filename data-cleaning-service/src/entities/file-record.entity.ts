@@ -11,12 +11,17 @@ import {
 @Index('IDX_file_record_status', ['status'])
 @Index('IDX_file_record_uploaded_at', ['uploadedAt'])
 @Index('IDX_file_record_job_id', ['jobId'])
+@Index('IDX_file_record_task_id', ['taskId'])
+@Index('IDX_file_record_queue_status', ['queueStatus'])
 export class FileRecord {
     @PrimaryGeneratedColumn('uuid')
     id: string;
 
     @Column({ unique: true })
     jobId: string;
+
+    @Column({ nullable: true, unique: true })
+    taskId?: string;
 
     @Column({
         type: 'varchar',
@@ -42,32 +47,46 @@ export class FileRecord {
     })
     status: 'pending' | 'processing' | 'completed' | 'failed';
 
+    @Column({
+        type: 'enum',
+        enum: ['pending', 'processing', 'completed', 'failed'],
+        default: 'pending',
+        nullable: true
+    })
+    queueStatus?: 'pending' | 'processing' | 'completed' | 'failed';
+
     @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
     uploadedAt: Date;
 
     @Column({ type: 'timestamp', nullable: true })
-    completedAt: Date;
+    enqueuedAt?: Date;
+
+    @Column({ type: 'timestamp', nullable: true })
+    processingStartedAt?: Date;
+
+    @Column({ type: 'timestamp', nullable: true })
+    completedAt?: Date;
 
     @Column({ type: 'int', nullable: true })
-    totalRows: number;
+    totalRows?: number;
 
     @Column({ type: 'int', nullable: true })
-    cleanedRows: number;
+    cleanedRows?: number;
 
     @Column({ type: 'int', nullable: true })
-    exceptionRows: number;
+    exceptionRows?: number;
 
     @Column({ type: 'int', nullable: true })
-    processingTime: number; // 毫秒
+    processingTime?: number; // 毫秒
 
     @Column({ nullable: true })
-    cleanDataPath: string;
+    cleanDataPath?: string;
 
     @Column({ nullable: true })
-    exceptionDataPath: string;
+    exceptionDataPath?: string;
 
     @Column({ type: 'text', nullable: true })
-    errorMessage: string;
+    errorMessage?: string;
 
     @CreateDateColumn()
     createdAt: Date;

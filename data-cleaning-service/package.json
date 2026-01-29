@@ -19,7 +19,11 @@
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "validate-config": "ts-node -r tsconfig-paths/register src/tools/validate-config.ts",
-    "profile-rules": "ts-node -r tsconfig-paths/register src/tools/profile-rules.ts"
+    "profile-rules": "ts-node -r tsconfig-paths/register src/tools/profile-rules.ts",
+    "worker": "ts-node -r tsconfig-paths/register src/worker.ts",
+    "worker:dev": "ts-node -r tsconfig-paths/register --watch src/worker.ts",
+    "worker:prod": "node dist/worker.js",
+    "worker:debug": "ts-node -r tsconfig-paths/register --inspect src/worker.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",
@@ -28,6 +32,7 @@
     "@nestjs/platform-express": "^11.0.1",
     "@nestjs/swagger": "^11.2.4",
     "@nestjs/typeorm": "^11.0.0",
+    "@types/redis": "^4.0.11",
     "ajv": "^8.17.1",
     "ajv-formats": "^3.0.1",
     "class-transformer": "^0.5.1",
@@ -36,8 +41,10 @@
     "csv-parser": "^3.2.0",
     "exceljs": "^4.4.0",
     "iconv-lite": "^0.7.2",
+    "ioredis": "^5.9.2",
     "multer": "^2.0.2",
     "mysql2": "^3.16.0",
+    "redis": "^5.10.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
     "swagger-ui-express": "^5.0.1",

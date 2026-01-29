@@ -1,4 +1,4 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 /**
  * Response DTO for file upload
@@ -9,6 +9,12 @@ export class UploadResponseDto {
         example: 'job_123456789'
     })
     jobId: string;
+
+    @ApiPropertyOptional({
+        description: '任务ID的别名，与jobId相同，用于异步处理状态查询',
+        example: 'job_123456789'
+    })
+    taskId?: string;
 
     @ApiProperty({
         description: '文件ID，用于文件管理',
@@ -27,4 +33,11 @@ export class UploadResponseDto {
         example: 1000
     })
     totalRows: number;
+
+    @ApiPropertyOptional({
+        description: '处理状态',
+        enum: ['pending', 'processing', 'completed', 'failed'],
+        example: 'pending'
+    })
+    status?: string;
 }

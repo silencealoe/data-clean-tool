@@ -23,6 +23,7 @@ import { ProcessingConfig } from './parallel/types';
 import { RuleEngineService } from './rule-engine/rule-engine.service';
 import { StrategyRegistrationService } from './rule-engine/strategy-registration.service';
 import { ConfigurationManagerService } from './rule-engine/configuration-manager.service';
+import { ProgressTrackerService as AsyncProgressTrackerService } from './progress-tracker.service';
 import * as path from 'path';
 import * as fs from 'fs';
 
@@ -105,6 +106,7 @@ export class DataCleanerService {
         private readonly ruleEngine: RuleEngineService,
         private readonly strategyRegistration: StrategyRegistrationService,
         private readonly configurationManager: ConfigurationManagerService,
+        private readonly progressTracker: AsyncProgressTrackerService,
     ) {
         // 记录配置信息
         this.logger.log(
@@ -203,6 +205,9 @@ export class DataCleanerService {
             throw new Error(`文件不存在: ${filePath}`);
         }
 
+        // 初始化进度跟踪
+        await this.progressTracker.initializeProgress(jobId, 0, 'estimating');
+
         // 快速估算文件行数（用于决定是否使用并行处理）
         const estimatedRows = await this.estimateFileRows(filePath);
 
@@ -210,6 +215,12 @@ export class DataCleanerService {
             `文件行数估算: ${estimatedRows.toLocaleString()} 行, ` +
             `文件大小: ${(estimatedRows * 100 / 1024 / 1024).toFixed(2)} MB (估算)`
         );
+
+        // 更新进度跟踪器的总行数估算
+        await this.progressTracker.updateProgress(jobId, {
+            totalRows: estimatedRows,
+            currentPhase: 'preparing'
+        });
 
         // 决定是否使用并行处理
         const useParallel = shouldUseParallelProcessing(workerThreadsConfig, estimatedRows);
@@ -271,6 +282,9 @@ export class DataCleanerService {
         this.logger.log(`开始并行流式数据清洗: ${jobId}`);
 
         try {
+            // 初始化进度跟踪
+            await this.progressTracker.updatePhase(jobId, 'initializing');
+
             // 构建处理配置
             const config: ProcessingConfig = {
                 workerCount: workerThreadsConfig.workerCount,
@@ -280,6 +294,9 @@ export class DataCleanerService {
                 enablePerformanceMonitoring: workerThreadsConfig.enablePerformanceMonitoring,
                 performanceSampleInterval: workerThreadsConfig.performanceSampleInterval,
             };
+
+            // 更新进度：开始并行处理
+            await this.progressTracker.updatePhase(jobId, 'parallel_processing');
 
             // 使用并行处理管理器处理文件
             const result = await this.parallelProcessingManager.processFile(
@@ -321,6 +338,9 @@ export class DataCleanerService {
                 },
             };
 
+            // 最终进度更新：标记完成
+            await this.progressTracker.markCompleted(jobId, streamResult.statistics);
+
             // 添加性能指标（可选字段）
             if (result.performanceSummary) {
                 streamResult.performanceMetrics = {
@@ -340,6 +360,10 @@ export class DataCleanerService {
 
         } catch (error) {
             this.logger.error(`并行流式数据清洗失败: ${error.message}`, error.stack);
+
+            // 标记任务失败
+            await this.progressTracker.markFailed(jobId, error.message);
+
             throw error;
         }
     }
@@ -352,6 +376,9 @@ export class DataCleanerService {
      */
     private async cleanDataStreamSequential(filePath: string, jobId: string): Promise<StreamCleaningResult> {
         this.logger.log(`开始顺序流式数据清洗任务: ${jobId}, 文件: ${filePath}`);
+
+        // 初始化进度跟踪
+        await this.progressTracker.updatePhase(jobId, 'initializing');
 
         // 初始化批次
         let cleanBatch: any[] = [];
@@ -372,15 +399,21 @@ export class DataCleanerService {
         const fileExtension = path.extname(filePath).toLowerCase();
 
         try {
+            // 更新进度：开始文件解析
+            await this.progressTracker.updatePhase(jobId, 'parsing');
+
             if (fileExtension === '.csv') {
                 // 使用CSV流式解析器
                 await this.streamParser.parseCsvStream(
                     filePath,
                     async (row: RowData, types: ColumnTypeMap) => {
-                        // 保存列类型
+                        // 保存列类型并初始化进度
                         if (Object.keys(types).length > 0 && Object.keys(columnTypes).length === 0) {
                             columnTypes = types;
                             this.logger.log(`列类型已识别: ${JSON.stringify(columnTypes)}`);
+
+                            // 更新进度：开始数据清洗
+                            await this.progressTracker.updatePhase(jobId, 'cleaning');
                         }
 
                         totalRows++;
@@ -399,6 +432,13 @@ export class DataCleanerService {
                                 `已用时间: ${totalElapsed.toFixed(1)} 秒, ` +
                                 `清洁: ${cleanedRows.toLocaleString()}, 异常: ${exceptionRows.toLocaleString()}`
                             );
+
+                            // 更新进度跟踪器
+                            await this.progressTracker.updateProgress(jobId, {
+                                processedRows: totalRows,
+                                totalRows: totalRows, // 在流式处理中，总行数会动态增长
+                                currentPhase: 'cleaning'
+                            });
 
                             lastLogTime = currentTime;
                             processedSinceLastLog = 0;
@@ -429,9 +469,15 @@ export class DataCleanerService {
 
                         // 检查批次大小，达到BATCH_SIZE条时触发批量插入
                         if (cleanBatch.length >= BATCH_SIZE) {
+                            // 更新进度：保存数据
+                            await this.progressTracker.updatePhase(jobId, 'saving_batch', totalRows);
+
                             await this.databasePersistence.batchInsertCleanData(cleanBatch);
                             this.logger.log(`批量插入清洁数据: ${cleanBatch.length}条`);
                             cleanBatch = [];
+
+                            // 恢复清洗阶段
+                            await this.progressTracker.updatePhase(jobId, 'cleaning', totalRows);
                         }
 
                         if (errorBatch.length >= BATCH_SIZE) {
@@ -454,10 +500,13 @@ export class DataCleanerService {
                 await this.streamParser.parseExcelStream(
                     filePath,
                     async (row: RowData, types: ColumnTypeMap) => {
-                        // 保存列类型
+                        // 保存列类型并初始化进度
                         if (Object.keys(types).length > 0 && Object.keys(columnTypes).length === 0) {
                             columnTypes = types;
                             this.logger.log(`列类型已识别: ${JSON.stringify(columnTypes)}`);
+
+                            // 更新进度：开始数据清洗
+                            await this.progressTracker.updatePhase(jobId, 'cleaning');
                         }
 
                         totalRows++;
@@ -476,6 +525,13 @@ export class DataCleanerService {
                                 `已用时间: ${totalElapsed.toFixed(1)} 秒, ` +
                                 `清洁: ${cleanedRows.toLocaleString()}, 异常: ${exceptionRows.toLocaleString()}`
                             );
+
+                            // 更新进度跟踪器
+                            await this.progressTracker.updateProgress(jobId, {
+                                processedRows: totalRows,
+                                totalRows: totalRows, // 在流式处理中，总行数会动态增长
+                                currentPhase: 'cleaning'
+                            });
 
                             lastLogTime = currentTime;
                             processedSinceLastLog = 0;
@@ -506,9 +562,15 @@ export class DataCleanerService {
 
                         // 检查批次大小，达到BATCH_SIZE条时触发批量插入
                         if (cleanBatch.length >= BATCH_SIZE) {
+                            // 更新进度：保存数据
+                            await this.progressTracker.updatePhase(jobId, 'saving_batch', totalRows);
+
                             await this.databasePersistence.batchInsertCleanData(cleanBatch);
                             this.logger.log(`批量插入清洁数据: ${cleanBatch.length}条`);
                             cleanBatch = [];
+
+                            // 恢复清洗阶段
+                            await this.progressTracker.updatePhase(jobId, 'cleaning', totalRows);
                         }
 
                         if (errorBatch.length >= BATCH_SIZE) {
@@ -527,6 +589,9 @@ export class DataCleanerService {
                     },
                 );
             }
+
+            // 更新进度：保存剩余数据
+            await this.progressTracker.updatePhase(jobId, 'finalizing', totalRows);
 
             // 插入剩余的批次
             if (cleanBatch.length > 0) {
@@ -558,6 +623,9 @@ export class DataCleanerService {
                 `平均速度: ${avgSpeed.toFixed(0)}行/秒`
             );
 
+            // 最终进度更新：标记完成
+            await this.progressTracker.markCompleted(jobId, statistics);
+
             // 构建返回结果
             const streamResult: StreamCleaningResult = {
                 jobId,
@@ -576,6 +644,10 @@ export class DataCleanerService {
             return streamResult;
         } catch (error) {
             this.logger.error(`顺序流式数据清洗失败: ${error.message}`, error.stack);
+
+            // 标记任务失败
+            await this.progressTracker.markFailed(jobId, error.message);
+
             throw error;
         }
     }

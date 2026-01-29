@@ -176,4 +176,11 @@ export class FileRecordService {
 
         return result.affected || 0;
     }
+
+    /**
+     * 更新文件记录的任务信息
+     */
+    async updateFileRecordWithTaskInfo(fileRecord: FileRecord): Promise<FileRecord> {
+        return await this.fileRecordRepository.save(fileRecord);
+    }
 }
