@@ -23,6 +23,7 @@ import { QueueManagerService } from './services/queue/queue-manager.service';
 import { TaskConsumerService } from './services/queue/task-consumer.service';
 import { ErrorHandlerService } from './services/queue/error-handler.service';
 import { TimeoutManagerService } from './services/queue/timeout-manager.service';
+import { RecoveryManagerService } from './services/queue/recovery-manager.service';
 import { ConfigurationManagerService } from './services/rule-engine/configuration-manager.service';
 import { StrategyCacheService } from './services/rule-engine/strategy-cache.service';
 import { ParallelProcessorService } from './services/rule-engine/parallel-processor.service';
@@ -91,6 +92,7 @@ import queueConfig from './config/queue.config';
         TaskConsumerService,
         ErrorHandlerService,
         TimeoutManagerService,
+        RecoveryManagerService,
 
         // 文件处理服务
         FileRecordService,

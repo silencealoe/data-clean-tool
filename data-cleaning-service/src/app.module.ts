@@ -27,7 +27,7 @@ import {
   StrategyRegistrationService,
   TaskProducerService
 } from './services';
-import { QueueManagerService, ErrorHandlerService, TimeoutManagerService } from './services/queue';
+import { QueueManagerService, ErrorHandlerService, TimeoutManagerService, RecoveryManagerService } from './services/queue';
 import { ProgressTrackerService as AsyncProgressTrackerService } from './services/progress-tracker.service';
 import { ConfigurationManagerService } from './services/rule-engine/configuration-manager.service';
 import { StrategyCacheService } from './services/rule-engine/strategy-cache.service';
@@ -41,6 +41,7 @@ import { ProgressTrackerService } from './services/parallel/progress-tracker.ser
 import { PerformanceMonitorService } from './services/parallel/performance-monitor.service';
 import { ResourceMonitorService } from './services/parallel/resource-monitor.service';
 import { RedisModule } from './modules/redis.module';
+import { MonitoringModule } from './modules/monitoring.module';
 import redisConfig from './config/redis.config';
 import queueConfig from './config/queue.config';
 
@@ -55,6 +56,9 @@ import queueConfig from './config/queue.config';
 
     // Redis module for queue management
     RedisModule,
+
+    // Monitoring module for health checks and metrics
+    MonitoringModule,
 
     // Configure TypeORM with async configuration
     TypeOrmModule.forRootAsync({
@@ -108,6 +112,7 @@ import queueConfig from './config/queue.config';
     },
     ErrorHandlerService,
     TimeoutManagerService,
+    RecoveryManagerService,
     TaskProducerService,
     AsyncProgressTrackerService,
     // Rule Engine Services

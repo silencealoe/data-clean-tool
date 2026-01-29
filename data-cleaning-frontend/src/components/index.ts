@@ -15,6 +15,9 @@ export { ProgressMonitor } from './progress-monitor';
 export { MetricsMonitor } from './metrics-monitor';
 export { PerformanceReport } from './performance-report';
 
+// 异步处理组件
+export { default as AsyncProgressBar } from './async-progress-bar';
+
 // UI 组件
 export { Button } from './ui/button';
 export { Progress } from './ui/progress';

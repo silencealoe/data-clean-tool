@@ -20,10 +20,7 @@ import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 import { DownloadManager } from './download-manager';
 import { DataViewer } from './data-viewer';
-<<<<<<< HEAD
 import { PerformanceReport } from './performance-report';
-=======
->>>>>>> ab86e763c74c7b40cbdb2a6db4337c0e9dcaa40a
 import { useFileDetail } from '../hooks/use-file-detail';
 import { formatFileSize } from '../lib/file-utils';
 import { cn } from '../lib/utils';
@@ -364,7 +361,6 @@ export function FileDetail({
                 exceptionRows={file.exceptionRows}
             />
 
-<<<<<<< HEAD
             {/* 性能报告 - 仅在完成状态显示 */}
             {file.status === 'completed' && (
                 <div className="mt-6 animate-in fade-in-0 slide-in-from-bottom-4 duration-1000 delay-200">
@@ -376,8 +372,6 @@ export function FileDetail({
                 </div>
             )}
 
-=======
->>>>>>> ab86e763c74c7b40cbdb2a6db4337c0e9dcaa40a
             {/* 数据查看器 - 仅在完成状态显示 */}
             {file.status === 'completed' && (
                 <DataViewer jobId={file.jobId} className="mt-6" />

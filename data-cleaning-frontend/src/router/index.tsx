@@ -1,10 +1,7 @@
 import { createBrowserRouter, Navigate } from 'react-router-dom';
-<<<<<<< HEAD
-import { HomePage, UploadPage, FilesPage, FileDetailPage, DataTablePage, RuleConfigPage } from '@/pages';
-=======
-import { HomePage, UploadPage, FilesPage, FileDetailPage, DataTablePage } from '@/pages';
->>>>>>> ab86e763c74c7b40cbdb2a6db4337c0e9dcaa40a
+import { HomePage, UploadPage, AsyncUploadPage, FilesPage, FileDetailPage, DataTablePage } from '@/pages';
 import { Layout } from '@/components/layout';
+
 
 /**
  * 应用路由配置
@@ -23,6 +20,10 @@ export const router = createBrowserRouter([
                 element: <UploadPage />
             },
             {
+                path: 'upload/async',
+                element: <AsyncUploadPage />
+            },
+            {
                 path: 'files',
                 element: <FilesPage />
             },
@@ -35,13 +36,6 @@ export const router = createBrowserRouter([
                 element: <DataTablePage />
             },
             {
-<<<<<<< HEAD
-                path: 'rule-config',
-                element: <RuleConfigPage />
-            },
-            {
-=======
->>>>>>> ab86e763c74c7b40cbdb2a6db4337c0e9dcaa40a
                 path: '*',
                 element: <Navigate to="/" replace />
             }

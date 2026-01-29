@@ -263,7 +263,51 @@ class ApiClientImpl implements ApiClient {
 
         return response.data;
     }
-<<<<<<< HEAD
+
+    /**
+     * 异步上传文件
+     */
+    async uploadFileAsync(file: File, onProgress?: (progressEvent: { loaded: number; total?: number }) => void): Promise<AsyncUploadResponse> {
+        const formData = new FormData();
+        formData.append('file', file);
+
+        console.log('Starting async file upload:', file.name);
+
+        const response = await this.client.post<AsyncUploadResponse>(
+            '/api/data-cleaning/upload',
+            formData,
+            {
+                headers: {
+                    'Content-Type': 'multipart/form-data',
+                },
+                onUploadProgress: (progressEvent) => {
+                    console.log('Axios progress event:', progressEvent);
+                    if (onProgress && progressEvent.total) {
+                        const progress = {
+                            loaded: progressEvent.loaded,
+                            total: progressEvent.total
+                        };
+                        console.log('Calling onProgress with:', progress);
+                        onProgress(progress);
+                    }
+                },
+            }
+        );
+
+        console.log('Async upload completed:', response.data);
+        return response.data;
+    }
+
+    /**
+     * 查询异步任务状态
+     */
+    async checkTaskStatus(taskId: string): Promise<TaskStatusResponse> {
+        const response = await this.client.get<TaskStatusResponse>(
+            `/api/data-cleaning/check-status/${taskId}`
+        );
+
+        return response.data;
+    }
 
     /**
      * 查询处理进度
@@ -364,8 +408,6 @@ class ApiClientImpl implements ApiClient {
 
         return response.data;
     }
-=======
->>>>>>> ab86e763c74c7b40cbdb2a6db4337c0e9dcaa40a
 }
 
 // 创建API客户端实例

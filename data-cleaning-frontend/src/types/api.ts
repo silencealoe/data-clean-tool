@@ -9,12 +9,23 @@ export type FileStatus = 'pending' | 'processing' | 'completed' | 'failed';
 // 处理状态枚举
 export type ProcessingStatus = 'processing' | 'completed' | 'failed';
 
+// 异步任务状态枚举
+export type TaskStatus = 'pending' | 'processing' | 'completed' | 'failed' | 'timeout';
+
 // 上传响应接口
 export interface UploadResponse {
     jobId: string;
     fileId: string;
     message: string;
     totalRows: number;
+}
+
+// 异步上传响应接口
+export interface AsyncUploadResponse {
+    taskId: string;
+    fileId: string;
+    message: string;
+    status: TaskStatus;
 }
 
 // 错误响应接口
@@ -40,6 +51,22 @@ export interface StatusResponse {
     status: ProcessingStatus;
     progress: number;
     statistics?: ProcessingStatistics;
+}
+
+// 异步任务状态响应接口
+export interface TaskStatusResponse {
+    taskId: string;
+    status: TaskStatus;
+    progress: number;
+    processedRows: number;
+    totalRows: number;
+    currentPhase: string;
+    estimatedTimeRemaining?: number;
+    statistics?: ProcessingStatistics;
+    createdAt: string;
+    startedAt?: string;
+    completedAt?: string;
+    errorMessage?: string;
 }
 
 // 文件记录接口
@@ -117,16 +144,10 @@ export interface ApiClient {
     downloadExceptionData(jobId: string): Promise<Blob>;
     getCleanDataPaginated(jobId: string, page: number, pageSize: number): Promise<PaginatedDataResponse>;
     getExceptionDataPaginated(jobId: string, page: number, pageSize: number): Promise<PaginatedDataResponse>;
-<<<<<<< HEAD
-
-    // Rule Configuration API methods
-    getCurrentRuleConfig(): Promise<import('./rule-config').RuleConfigResponse>;
-    updateRuleConfig(config: import('./rule-config').RuleConfiguration, description?: string): Promise<import('./rule-config').RuleConfigResponse>;
-    reloadRuleConfig(): Promise<import('./rule-config').RuleConfigResponse>;
-    getRuleConfigHistory(limit?: number): Promise<import('./rule-config').ConfigHistoryResponse>;
-    getRuleConfigStats(): Promise<import('./rule-config').ConfigStatsResponse>;
-=======
->>>>>>> ab86e763c74c7b40cbdb2a6db4337c0e9dcaa40a
+    
+    // 异步队列处理API方法
+    uploadFileAsync(file: File, onProgress?: (progressEvent: { loaded: number; total?: number }) => void): Promise<AsyncUploadResponse>;
+    checkTaskStatus(taskId: string): Promise<TaskStatusResponse>;
 }
 
 // 文件验证结果接口
