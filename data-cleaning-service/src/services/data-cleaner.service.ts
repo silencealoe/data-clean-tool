@@ -17,6 +17,7 @@ import { DateCleanerService } from './date-cleaner.service';
 import { AddressCleanerService } from './address-cleaner.service';
 import { StreamParserService, StreamStatistics } from './stream-parser.service';
 import { DatabasePersistenceService } from './database-persistence.service';
+import { DataCleanerOptimizedService } from './data-cleaner-optimized.service';
 import { ParallelProcessingManagerService } from './parallel/parallel-processing-manager.service';
 import { workerThreadsConfig, shouldUseParallelProcessing } from '../config/worker-threads.config';
 import { ProcessingConfig } from './parallel/types';
@@ -29,9 +30,11 @@ import * as fs from 'fs';
 
 /**
  * 批次配置
- * 优化批次大小，提高大文件处理速度
+ * 大幅优化批次大小，提高大文件处理速度
  */
-const BATCH_SIZE = 5000; // 优化：从2000增加到5000，减少数据库连接次数
+const BATCH_SIZE = 20000; // 优化：增加到20000，大幅减少数据库连接次数
+const PROGRESS_UPDATE_INTERVAL = 50000; // 进度更新间隔：每50000行
+const PROGRESS_TIME_INTERVAL = 5000; // 时间间隔：每5秒
 
 /**
  * 规则引擎配置
@@ -102,6 +105,7 @@ export class DataCleanerService {
         private readonly addressCleaner: AddressCleanerService,
         private readonly streamParser: StreamParserService,
         private readonly databasePersistence: DatabasePersistenceService,
+        private readonly dataCleanerOptimized: DataCleanerOptimizedService,
         // Make ParallelProcessingManagerService optional for now
         // private readonly parallelProcessingManager: ParallelProcessingManagerService,
         private readonly ruleEngine: RuleEngineService,
@@ -193,7 +197,7 @@ export class DataCleanerService {
 
     /**
      * 流式清洗数据（用于大文件）
-     * 根据配置和文件大小自动选择并行或顺序处理
+     * 根据配置和文件大小自动选择优化处理或并行处理
      * @param filePath 文件路径
      * @param jobId 任务ID
      * @returns StreamCleaningResult 包含统计信息
@@ -223,22 +227,9 @@ export class DataCleanerService {
             currentPhase: 'preparing'
         });
 
-        // 决定是否使用并行处理
-        const useParallel = shouldUseParallelProcessing(workerThreadsConfig, estimatedRows);
-
-        if (useParallel) {
-            this.logger.log(
-                `使用并行处理: 工作线程数=${workerThreadsConfig.workerCount}, ` +
-                `批处理大小=${workerThreadsConfig.parallelBatchSize}`
-            );
-            return await this.cleanDataStreamParallel(filePath, jobId);
-        } else {
-            this.logger.log(
-                `使用顺序处理: 文件行数(${estimatedRows})小于最小并行阈值(${workerThreadsConfig.minRecordsForParallel})` +
-                `或并行处理已禁用`
-            );
-            return await this.cleanDataStreamSequential(filePath, jobId);
-        }
+        // 优先使用高性能优化服务处理
+        this.logger.log(`使用高性能优化处理: 目标处理速度 8000+ 行/秒`);
+        return await this.dataCleanerOptimized.cleanDataStreamOptimized(filePath, jobId);
     }
 
     /**
@@ -254,13 +245,17 @@ export class DataCleanerService {
             const stats = fs.statSync(filePath);
             const fileSizeBytes = stats.size;
 
-            // 根据文件类型估算
+            // 根据文件类型估算，使用更保守的估算（更小的每行字节数）
             if (fileExtension === '.csv') {
-                // CSV: 假设平均每行 100 字节
-                return Math.floor(fileSizeBytes / 100);
+                // CSV: 假设平均每行 70 字节（更保守的估算）
+                const estimatedRows = Math.floor(fileSizeBytes / 70);
+                // 添加20%的缓冲区以应对估算不准确的情况
+                return Math.floor(estimatedRows * 1.2);
             } else {
-                // Excel: 假设平均每行 150 字节（包含格式开销）
-                return Math.floor(fileSizeBytes / 150);
+                // Excel: 假设平均每行 120 字节（更保守的估算）
+                const estimatedRows = Math.floor(fileSizeBytes / 120);
+                // 添加20%的缓冲区
+                return Math.floor(estimatedRows * 1.2);
             }
         } catch (error) {
             this.logger.warn(`无法估算文件行数: ${error.message}，使用默认值 1000`);
@@ -352,8 +347,7 @@ export class DataCleanerService {
                             // 更新进度跟踪器
                             await this.progressTracker.updateProgress(jobId, {
                                 processedRows: totalRows,
-                                totalRows: totalRows, // 在流式处理中，总行数会动态增长
-                                currentPhase: 'cleaning'
+                                                                currentPhase: 'cleaning'
                             });
 
                             lastLogTime = currentTime;
@@ -445,8 +439,7 @@ export class DataCleanerService {
                             // 更新进度跟踪器
                             await this.progressTracker.updateProgress(jobId, {
                                 processedRows: totalRows,
-                                totalRows: totalRows, // 在流式处理中，总行数会动态增长
-                                currentPhase: 'cleaning'
+                                                                currentPhase: 'cleaning'
                             });
 
                             lastLogTime = currentTime;

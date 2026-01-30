@@ -12,6 +12,7 @@ export const ALLOWED_MIME_TYPES = [
     'text/csv', // .csv
     'application/csv', // .csv (alternative MIME type)
     'text/plain', // .csv (sometimes detected as plain text)
+    'application/octet-stream', // .csv (sometimes detected by curl)
 ];
 
 // Allowed file extensions

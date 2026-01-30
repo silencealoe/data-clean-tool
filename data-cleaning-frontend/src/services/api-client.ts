@@ -310,6 +310,17 @@ class ApiClientImpl implements ApiClient {
     }
 
     /**
+     * 获取任务状态（通用方法）
+     */
+    async getTaskStatus(taskId: string): Promise<any> {
+        const response = await this.client.get(
+            `/api/data-cleaning/check-status/${taskId}`
+        );
+
+        return response.data;
+    }
+
+    /**
      * 查询处理进度
      */
     async getProgress(jobId: string): Promise<import('../types/api').ProgressResponse> {
@@ -332,8 +343,39 @@ class ApiClientImpl implements ApiClient {
     }
 
     /**
-     * 查询性能报告
+     * 查询上传进度
      */
+    async getUploadProgress(uploadId: string): Promise<{
+        uploadId: string;
+        fileName: string;
+        totalSize: number;
+        uploadedSize: number;
+        progress: number;
+        speed: number;
+        status: 'uploading' | 'completed' | 'failed';
+        estimatedTimeRemaining?: number;
+    }> {
+        const response = await this.client.get<{
+            uploadId: string;
+            fileName: string;
+            totalSize: number;
+            uploadedSize: number;
+            progress: number;
+            speed: number;
+            status: 'uploading' | 'completed' | 'failed';
+            estimatedTimeRemaining?: number;
+        }>(`/api/upload-progress/${uploadId}`);
+
+        return response.data;
+    }
+
+    /**
+     * 创建上传进度流
+     */
+    createUploadProgressStream(uploadId: string): EventSource {
+        const url = `${API_BASE_URL}/api/upload-progress/stream/${uploadId}`;
+        return new EventSource(url);
+    }
     async getPerformanceReport(jobId: string): Promise<import('../types/api').PerformanceReportResponse> {
         const response = await this.client.get<import('../types/api').PerformanceReportResponse>(
             `/api/data-cleaning/report/${jobId}`

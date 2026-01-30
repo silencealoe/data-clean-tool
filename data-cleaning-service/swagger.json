@@ -1154,6 +1154,156 @@
         ]
       }
     },
+    "/api/upload-progress/{uploadId}": {
+      "get": {
+        "description": "根据上传ID查询文件上传的实时进度信息",
+        "operationId": "UploadProgressController_getUploadProgress",
+        "parameters": [
+          {
+            "name": "uploadId",
+            "required": true,
+            "in": "path",
+            "description": "上传ID",
+            "schema": {
+              "example": "upload_123456789",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功返回上传进度信息",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "uploadId": {
+                      "type": "string",
+                      "description": "上传ID"
+                    },
+                    "fileName": {
+                      "type": "string",
+                      "description": "文件名"
+                    },
+                    "totalSize": {
+                      "type": "number",
+                      "description": "文件总大小(字节)"
+                    },
+                    "uploadedSize": {
+                      "type": "number",
+                      "description": "已上传大小(字节)"
+                    },
+                    "progress": {
+                      "type": "number",
+                      "description": "上传进度百分比(0-100)"
+                    },
+                    "speed": {
+                      "type": "number",
+                      "description": "上传速度(字节/秒)"
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "uploading",
+                        "completed",
+                        "failed"
+                      ],
+                      "description": "上传状态"
+                    },
+                    "estimatedTimeRemaining": {
+                      "type": "number",
+                      "description": "预估剩余时间(秒)"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "上传记录不存在",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "查询上传进度",
+        "tags": [
+          "upload-progress"
+        ]
+      }
+    },
+    "/api/upload-progress/active/all": {
+      "get": {
+        "description": "获取当前所有正在进行的文件上传进度",
+        "operationId": "UploadProgressController_getAllActiveUploads",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "成功返回所有活跃上传列表",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "uploadId": {
+                        "type": "string"
+                      },
+                      "fileName": {
+                        "type": "string"
+                      },
+                      "progress": {
+                        "type": "number"
+                      },
+                      "status": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "查询所有活跃上传",
+        "tags": [
+          "upload-progress"
+        ]
+      }
+    },
+    "/api/upload-progress/stream/{uploadId}": {
+      "get": {
+        "description": "通过Server-Sent Events实时推送上传进度更新",
+        "operationId": "UploadProgressController_streamUploadProgress",
+        "parameters": [
+          {
+            "name": "uploadId",
+            "required": true,
+            "in": "path",
+            "description": "上传ID",
+            "schema": {
+              "example": "upload_123456789",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "实时上传进度流",
+        "tags": [
+          "upload-progress"
+        ]
+      }
+    },
     "/api/monitoring/health": {
       "get": {
         "operationId": "MonitoringController_getHealth",

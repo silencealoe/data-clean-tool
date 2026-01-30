@@ -23,6 +23,7 @@ import { DataViewer } from './data-viewer';
 import { PerformanceReport } from './performance-report';
 import { useFileDetail } from '../hooks/use-file-detail';
 import { formatFileSize } from '../lib/file-utils';
+import { TaskProgressBar } from './task-progress-bar';
 import { cn } from '../lib/utils';
 import type { FileStatus } from '../types';
 
@@ -277,6 +278,24 @@ export function FileDetail({
                     </div>
                 </CardContent>
             </Card>
+
+            {/* 任务进度条 - 仅在处理中状态显示 */}
+            {(file.status === 'processing' || file.status === 'pending') && file.taskId && (
+                <div className="mb-6 animate-in fade-in-0 slide-in-from-bottom-4 duration-1000 delay-300">
+                    <TaskProgressBar
+                        taskId={file.taskId}
+                        onComplete={() => {
+                            // 任务完成时刷新文件详情
+                            refetch();
+                        }}
+                        onError={(error) => {
+                            console.error('Task processing error:', error);
+                            // 任务失败时也刷新文件详情
+                            refetch();
+                        }}
+                    />
+                </div>
+            )}
 
             {/* 处理统计信息 - 仅在完成状态显示 */}
             {file.status === 'completed' && (statistics || (file.cleanedRows !== null && file.exceptionRows !== null)) && (

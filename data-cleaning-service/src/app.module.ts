@@ -7,6 +7,7 @@ import { DataCleaningController } from './data-cleaning.controller';
 import { RuleConfigController } from './rule-config.controller';
 import { QueueHealthController } from './controllers/queue-health.controller';
 import { AsyncProcessingController } from './async-processing.controller';
+import { UploadProgressController } from './upload-progress.controller';
 import { FileRecord, CleanData, ErrorLog } from './entities';
 import {
   FileRecordService,
@@ -27,6 +28,8 @@ import {
   StrategyRegistrationService,
   TaskProducerService
 } from './services';
+import { DataCleanerOptimizedService } from './services/data-cleaner-optimized.service';
+import { UploadProgressService } from './services/upload-progress.service';
 import { QueueManagerService, ErrorHandlerService, TimeoutManagerService, RecoveryManagerService } from './services/queue';
 import { ProgressTrackerService as AsyncProgressTrackerService } from './services/progress-tracker.service';
 import { ConfigurationManagerService } from './services/rule-engine/configuration-manager.service';
@@ -91,7 +94,7 @@ import queueConfig from './config/queue.config';
     // Configure TypeORM for entities
     TypeOrmModule.forFeature([FileRecord, CleanData, ErrorLog]),
   ],
-  controllers: [AppController, DataCleaningController, RuleConfigController, QueueHealthController, AsyncProcessingController],
+  controllers: [AppController, DataCleaningController, RuleConfigController, QueueHealthController, AsyncProcessingController, UploadProgressController],
   providers: [
     AppService,
     FileRecordService,
@@ -102,8 +105,11 @@ import queueConfig from './config/queue.config';
     ParserService,
     StreamParserService,
     DataCleanerService,
+    DataCleanerOptimizedService,
     ExportService,
     DatabasePersistenceService,
+    // Upload Progress Services
+    UploadProgressService,
     // Queue Services
     QueueManagerService,
     {

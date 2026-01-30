@@ -8,13 +8,22 @@ import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Upload, FileSpreadsheet, X, AlertCircle } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Progress } from '@/components/ui/progress';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AsyncProgressBar } from '@/components/async-progress-bar';
+import { UploadProgressBar } from '@/components/upload-progress-bar';
 import { cn } from '@/lib/utils';
 import { validateFile, formatFileSize } from '@/lib/file-utils';
-import { useAsyncFileUpload } from '@/hooks/use-async-file-upload';
+import { useUploadProgress } from '@/hooks/use-upload-progress';
 import type { TaskStatusResponse } from '@/types/api';
+
+// 状态配置
+const STATUS_CONFIG = {
+  pending: { label: '等待处理' },
+  processing: { label: '处理中' },
+  completed: { label: '已完成' },
+  failed: { label: '处理失败' },
+  timeout: { label: '处理超时' },
+};
 
 export function AsyncUploadPage() {
   const navigate = useNavigate();
@@ -22,36 +31,30 @@ export function AsyncUploadPage() {
   const [validationError, setValidationError] = useState<string | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
 
-  // 异步上传和处理状态
-  const {
-    isUploading,
-    uploadProgress,
-    uploadError,
-    uploadedFile,
-    isProcessing,
-    processingStatus,
-    processingError,
-    isPolling,
-    uploadFile,
-    refreshStatus,
-    reset,
-  } = useAsyncFileUpload({
-    onUploadSuccess: (data, file) => {
-      console.log('Upload successful:', data);
+  // 文件上传进度跟踪
+  const uploadProgress = useUploadProgress({
+    onComplete: (response) => {
+      console.log('Upload completed, starting processing tracking:', response);
+      // 上传完成后，开始跟踪处理进度
+      setUploadedFile({
+        taskId: response.taskId,
+        fileId: response.fileId, // 使用正确的fileId
+        fileName: response.fileName,
+      });
     },
-    onUploadError: (error, file) => {
+    onError: (error) => {
       console.error('Upload failed:', error);
     },
-    onProgressUpdate: (status) => {
-      console.log('Processing progress:', status);
-    },
-    onProcessingComplete: (status) => {
-      console.log('Processing complete:', status);
-    },
-    onProcessingError: (error) => {
-      console.error('Processing error:', error);
-    },
   });
+
+  // 处理进度状态
+  const [uploadedFile, setUploadedFile] = useState<{
+    taskId: string;
+    fileId: string;
+    fileName: string;
+  } | null>(null);
+
+  const [processingStatus, setProcessingStatus] = useState<TaskStatusResponse | null>(null);
 
   // 处理文件选择
   const handleFileSelect = useCallback((file: File) => {
@@ -102,10 +105,10 @@ export function AsyncUploadPage() {
 
   // 开始上传
   const handleUpload = useCallback(() => {
-    if (selectedFile && !isUploading) {
-      uploadFile(selectedFile);
+    if (selectedFile && !uploadProgress.isUploading) {
+      uploadProgress.uploadFile(selectedFile);
     }
-  }, [selectedFile, isUploading, uploadFile]);
+  }, [selectedFile, uploadProgress]);
 
   // 清除选择的文件
   const handleClearFile = useCallback(() => {
@@ -117,8 +120,10 @@ export function AsyncUploadPage() {
   const handleStartOver = useCallback(() => {
     setSelectedFile(null);
     setValidationError(null);
-    reset();
-  }, [reset]);
+    setUploadedFile(null);
+    setProcessingStatus(null);
+    uploadProgress.reset();
+  }, [uploadProgress]);
 
   // 返回首页
   const handleGoBack = useCallback(() => {
@@ -134,6 +139,11 @@ export function AsyncUploadPage() {
       navigate(`/files/${uploadedFile.fileId}`);
     }
   }, [uploadedFile, navigate]);
+
+  // 刷新状态（暂时保留兼容性）
+  const refreshStatus = useCallback(() => {
+    console.log('Refresh status called');
+  }, []);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-gray-900 dark:via-blue-950 dark:to-indigo-950 transition-colors duration-500">
@@ -171,36 +181,22 @@ export function AsyncUploadPage() {
             </CardHeader>
             <CardContent>
               {/* 上传进行中状态 */}
-              {isUploading && (
-                <div className="space-y-4 animate-in fade-in-0 slide-in-from-bottom-4 duration-500">
-                  <div className="text-center">
-                    <div className="relative inline-block">
-                      <FileSpreadsheet className="h-12 w-12 mx-auto mb-4 text-blue-500 animate-pulse" />
-                      <div className="absolute -top-1 -right-1 w-4 h-4 bg-blue-500 rounded-full animate-ping"></div>
-                    </div>
-                    <h3 className="text-lg font-medium">正在上传文件...</h3>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      {selectedFile?.name}
-                    </p>
-                  </div>
-                  <div className="space-y-2">
-                    <Progress value={uploadProgress} className="w-full h-2 transition-all duration-300" />
-                    <div className="flex justify-between items-center">
-                      <p className="text-sm text-muted-foreground">
-                        {uploadProgress}% 完成
-                      </p>
-                      <div className="flex items-center space-x-1">
-                        <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
-                        <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
-                        <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce"></div>
-                      </div>
-                    </div>
-                  </div>
+              {uploadProgress.isUploading && (
+                <div className="animate-in fade-in-0 slide-in-from-bottom-4 duration-500">
+                  <UploadProgressBar
+                    file={selectedFile}
+                    progress={uploadProgress.progress}
+                    isUploading={uploadProgress.isUploading}
+                    isCompleted={uploadProgress.isCompleted}
+                    error={uploadProgress.error}
+                    showFileInfo={true}
+                    showSpeedInfo={true}
+                  />
                 </div>
               )}
 
               {/* 文件已选择但未上传状态 */}
-              {selectedFile && !isUploading && !uploadedFile && (
+              {selectedFile && !uploadProgress.isUploading && !uploadedFile && (
                 <div className="space-y-4 animate-in fade-in-0 slide-in-from-bottom-4 duration-500">
                   <div className="border rounded-xl p-4 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-950/20 dark:to-emerald-950/20 border-green-200 dark:border-green-800 transition-all duration-300 hover:shadow-md">
                     <div className="flex items-center justify-between">
@@ -232,7 +228,7 @@ export function AsyncUploadPage() {
               )}
 
               {/* 文件选择区域 */}
-              {!selectedFile && !isUploading && !uploadedFile && (
+              {!selectedFile && !uploadProgress.isUploading && !uploadedFile && (
                 <div
                   className={cn(
                     'border-2 border-dashed rounded-xl p-8 text-center transition-all duration-300 ease-in-out transform hover:scale-[1.02] hover:shadow-lg',
@@ -285,10 +281,10 @@ export function AsyncUploadPage() {
               )}
 
               {/* 上传错误显示 */}
-              {uploadError && !isUploading && (
+              {uploadProgress.error && !uploadProgress.isUploading && (
                 <Alert variant="destructive" className="mt-4">
                   <AlertCircle className="h-4 w-4" />
-                  <AlertDescription>{uploadError}</AlertDescription>
+                  <AlertDescription>{uploadProgress.error}</AlertDescription>
                 </Alert>
               )}
             </CardContent>
@@ -335,10 +331,10 @@ export function AsyncUploadPage() {
                     { label: '文件名', value: uploadedFile.fileName, delay: 'delay-700' },
                     { label: '任务ID', value: uploadedFile.taskId, mono: true, delay: 'delay-800' },
                     { label: '文件ID', value: uploadedFile.fileId, mono: true, delay: 'delay-900' },
-                    { 
-                      label: '处理状态', 
-                      value: processingStatus?.status || '等待中', 
-                      delay: 'delay-1000' 
+                    {
+                      label: '处理状态',
+                      value: processingStatus?.status ? STATUS_CONFIG[processingStatus.status]?.label || processingStatus.status : '等待中',
+                      delay: 'delay-1000'
                     }
                   ].map((item, index) => (
                     <div
@@ -377,7 +373,7 @@ export function AsyncUploadPage() {
               <Button
                 variant="outline"
                 onClick={refreshStatus}
-                disabled={isPolling}
+                disabled={false}
                 className="transition-all duration-300 hover:scale-105 hover:shadow-md"
               >
                 刷新状态

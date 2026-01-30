@@ -73,6 +73,7 @@ export interface TaskStatusResponse {
 export interface FileRecord {
     id: string;
     jobId: string;
+    taskId?: string;
     originalFileName: string;
     fileSize: number;
     fileType: string;
@@ -96,6 +97,7 @@ export interface FileListResponse {
 export interface FileDetail {
     id: string;
     jobId: string;
+    taskId?: string;
     originalFileName: string;
     fileSize: number;
     fileType: string;
@@ -144,7 +146,7 @@ export interface ApiClient {
     downloadExceptionData(jobId: string): Promise<Blob>;
     getCleanDataPaginated(jobId: string, page: number, pageSize: number): Promise<PaginatedDataResponse>;
     getExceptionDataPaginated(jobId: string, page: number, pageSize: number): Promise<PaginatedDataResponse>;
-    
+
     // 异步队列处理API方法
     uploadFileAsync(file: File, onProgress?: (progressEvent: { loaded: number; total?: number }) => void): Promise<AsyncUploadResponse>;
     checkTaskStatus(taskId: string): Promise<TaskStatusResponse>;

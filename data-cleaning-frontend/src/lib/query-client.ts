@@ -60,6 +60,7 @@ export const queryKeys = {
     // 任务相关
     jobs: ['jobs'] as const,
     jobStatus: (jobId: string) => [...queryKeys.jobs, 'status', jobId] as const,
+    taskProgress: (taskId: string) => [...queryKeys.jobs, 'progress', taskId] as const,
 
     // 下载相关
     downloads: ['downloads'] as const,

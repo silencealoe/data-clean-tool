@@ -3,16 +3,16 @@
  * 提供实时进度显示、状态转换动画和错误处理
  */
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { Progress } from './ui/progress';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
 import { Alert, AlertDescription } from './ui/alert';
-import { 
-  CheckCircle, 
-  XCircle, 
-  Clock, 
-  Loader2, 
+import {
+  CheckCircle,
+  XCircle,
+  Clock,
+  Loader2,
   RefreshCw,
   Download,
   AlertTriangle
@@ -103,19 +103,30 @@ export const AsyncProgressBar: React.FC<AsyncProgressBarProps> = ({
     currentPhase: '初始化',
     createdAt: new Date().toISOString(),
   });
-  
+
   const [isPolling, setIsPolling] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [poller, setPoller] = useState<ReturnType<typeof createTaskPoller> | null>(null);
+
+  // 使用 ref 来存储 poller，避免依赖循环
+  const pollerRef = useRef<ReturnType<typeof createTaskPoller> | null>(null);
+
+  // 使用 ref 存储回调函数，避免依赖循环
+  const onCompleteRef = useRef(onComplete);
+  const onErrorRef = useRef(onError);
+
+  useEffect(() => {
+    onCompleteRef.current = onComplete;
+    onErrorRef.current = onError;
+  }, [onComplete, onError]);
 
   // 格式化时间
   const formatTime = useCallback((ms?: number): string => {
     if (!ms) return '--';
-    
+
     const seconds = Math.floor(ms / 1000);
     const minutes = Math.floor(seconds / 60);
     const hours = Math.floor(minutes / 60);
-    
+
     if (hours > 0) {
       return `${hours}小时${minutes % 60}分钟`;
     } else if (minutes > 0) {
@@ -132,8 +143,10 @@ export const AsyncProgressBar: React.FC<AsyncProgressBarProps> = ({
 
   // 开始轮询
   const startPolling = useCallback(() => {
-    if (isPolling || poller) {
-      return;
+    // 如果已经有轮询器在运行，先停止它
+    if (pollerRef.current) {
+      pollerRef.current.stop();
+      pollerRef.current = null;
     }
 
     console.log(`Starting polling for task ${taskId}`);
@@ -153,7 +166,7 @@ export const AsyncProgressBar: React.FC<AsyncProgressBarProps> = ({
           estimatedTimeRemaining: status.estimatedTimeRemaining,
           statistics: status.statistics,
           errorMessage: status.errorMessage,
-          createdAt: status.createdAt,
+          createdAt: status.createdAt || new Date().toISOString(),
           startedAt: status.startedAt,
           completedAt: status.completedAt,
         });
@@ -161,13 +174,13 @@ export const AsyncProgressBar: React.FC<AsyncProgressBarProps> = ({
       onComplete: (status: TaskStatusResponse) => {
         console.log(`Task ${taskId} completed with status: ${status.status}`);
         setIsPolling(false);
-        onComplete?.(status);
+        onCompleteRef.current?.(status);
       },
       onError: (err: Error) => {
         console.error(`Polling error for task ${taskId}:`, err);
         setError(err.message);
         setIsPolling(false);
-        onError?.(err);
+        onErrorRef.current?.(err);
       },
       onTimeout: () => {
         console.warn(`Polling timeout for task ${taskId}`);
@@ -177,19 +190,19 @@ export const AsyncProgressBar: React.FC<AsyncProgressBarProps> = ({
     };
 
     const newPoller = createTaskPoller(taskId, pollingOptions);
-    setPoller(newPoller);
+    pollerRef.current = newPoller;
     newPoller.start();
-  }, [taskId, pollingInterval, maxPollingAttempts, onComplete, onError, isPolling, poller]);
+  }, [taskId, pollingInterval, maxPollingAttempts]);
 
   // 停止轮询
   const stopPolling = useCallback(() => {
-    if (poller) {
+    if (pollerRef.current) {
       console.log(`Stopping polling for task ${taskId}`);
-      poller.stop();
-      setPoller(null);
+      pollerRef.current.stop();
+      pollerRef.current = null;
     }
     setIsPolling(false);
-  }, [poller, taskId]);
+  }, [taskId]);
 
   // 重试
   const handleRetry = useCallback(() => {
@@ -210,13 +223,67 @@ export const AsyncProgressBar: React.FC<AsyncProgressBarProps> = ({
   // 组件挂载时自动开始轮询
   useEffect(() => {
     if (autoStart) {
-      startPolling();
+      // 直接调用轮询逻辑，避免依赖 startPolling 函数
+      if (pollerRef.current) {
+        pollerRef.current.stop();
+        pollerRef.current = null;
+      }
+
+      console.log(`Auto-starting polling for task ${taskId}`);
+      setError(null);
+      setIsPolling(true);
+
+      const pollingOptions: PollingOptions = {
+        interval: pollingInterval,
+        maxAttempts: maxPollingAttempts,
+        onProgress: (status: TaskStatusResponse) => {
+          setProgressState({
+            status: status.status,
+            progress: status.progress,
+            processedRows: status.processedRows,
+            totalRows: status.totalRows,
+            currentPhase: status.currentPhase,
+            estimatedTimeRemaining: status.estimatedTimeRemaining,
+            statistics: status.statistics,
+            errorMessage: status.errorMessage,
+            createdAt: status.createdAt || new Date().toISOString(),
+            startedAt: status.startedAt,
+            completedAt: status.completedAt,
+          });
+        },
+        onComplete: (status: TaskStatusResponse) => {
+          console.log(`Task ${taskId} completed with status: ${status.status}`);
+          setIsPolling(false);
+          onCompleteRef.current?.(status);
+        },
+        onError: (err: Error) => {
+          console.error(`Polling error for task ${taskId}:`, err);
+          setError(err.message);
+          setIsPolling(false);
+          onErrorRef.current?.(err);
+        },
+        onTimeout: () => {
+          console.warn(`Polling timeout for task ${taskId}`);
+          setError('轮询超时，请手动刷新状态');
+          setIsPolling(false);
+        },
+      };
+
+      const newPoller = createTaskPoller(taskId, pollingOptions);
+      pollerRef.current = newPoller;
+      newPoller.start();
     }
 
     return () => {
-      stopPolling();
+      // 清理函数中直接访问 ref
+      if (pollerRef.current) {
+        console.log(`Cleaning up polling for task ${taskId}`);
+        pollerRef.current.stop();
+        pollerRef.current = null;
+      }
+      setIsPolling(false);
     };
-  }, [autoStart, startPolling, stopPolling]);
+  }, [autoStart, taskId, pollingInterval, maxPollingAttempts]); // 只依赖基本参数
 
   const statusConfig = STATUS_CONFIG[progressState.status];
   const StatusIcon = statusConfig.icon;
@@ -228,7 +295,7 @@ export const AsyncProgressBar: React.FC<AsyncProgressBarProps> = ({
       {/* 状态头部 */}
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-3">
-          <StatusIcon 
+          <StatusIcon
             className={cn(
               'h-5 w-5',
               isProcessing && 'animate-spin',
@@ -258,7 +325,7 @@ export const AsyncProgressBar: React.FC<AsyncProgressBarProps> = ({
               <RefreshCw className={cn('h-4 w-4', isPolling && 'animate-spin')} />
             </Button>
           )}
-          
+
           {showRetryButton && (progressState.status === 'failed' || error) && (
             <Button
               variant="outline"
@@ -268,7 +335,7 @@ export const AsyncProgressBar: React.FC<AsyncProgressBarProps> = ({
               重试
             </Button>
           )}
-          
+
           {showDownloadButton && progressState.status === 'completed' && (
             <Button
               variant="default"
@@ -287,8 +354,8 @@ export const AsyncProgressBar: React.FC<AsyncProgressBarProps> = ({
 
       {/* 进度条 */}
       <div className="space-y-2">
-        <Progress 
-          value={progressState.progress} 
+        <Progress
+          value={progressState.progress}
           className="h-3 transition-all duration-300"
         />
         <div className="flex justify-between text-sm text-gray-600">
@@ -320,7 +387,7 @@ export const AsyncProgressBar: React.FC<AsyncProgressBarProps> = ({
       {showDetails && (
         <div className="text-xs text-gray-500 space-y-1">
           <div>任务ID: {taskId}</div>
-          <div>创建时间: {new Date(progressState.createdAt).toLocaleString()}</div>
+          <div>创建时间: {progressState.createdAt ? new Date(progressState.createdAt).toLocaleString() : '--'}</div>
           {progressState.startedAt && (
             <div>开始时间: {new Date(progressState.startedAt).toLocaleString()}</div>
           )}
@@ -330,10 +397,10 @@ export const AsyncProgressBar: React.FC<AsyncProgressBarProps> = ({
           {progressState.statistics && (
             <div className="mt-2 p-2 bg-gray-50 rounded text-xs">
               <div className="font-medium mb-1">处理统计:</div>
-              <div>总行数: {formatNumber(progressState.statistics.totalRows)}</div>
-              <div>清洗行数: {formatNumber(progressState.statistics.cleanedRows)}</div>
-              <div>异常行数: {formatNumber(progressState.statistics.exceptionRows)}</div>
-              <div>处理时间: {formatTime(progressState.statistics.processingTime)}</div>
+              <div>总行数: {formatNumber(progressState.statistics.totalRows || 0)}</div>
+              <div>清洗行数: {formatNumber(progressState.statistics.processedRows || 0)}</div>
+              <div>异常行数: {formatNumber(progressState.statistics.invalidRows || 0)}</div>
+              <div>处理时间: {formatTime(progressState.statistics.processingTimeMs)}</div>
             </div>
           )}
         </div>

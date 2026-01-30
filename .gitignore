@@ -7,3 +7,17 @@
 ./frontend-admin-new/node_modules
 ./frontend-admin-new/dist
 ./testdoc
+
+# 测试数据文件夹
+test-data/
+**/test-data/
+*.csv
+!data-cleaning-service/test-data/sample-data.csv
+
+# 测试脚本文件夹（可选择性忽略）
+# test-scripts/
+
+# 临时文件和大文件
+data-cleaning-service/temp/*.csv
+data-cleaning-service/uploads/*.csv
+data-cleaning-service/exports/*.csv

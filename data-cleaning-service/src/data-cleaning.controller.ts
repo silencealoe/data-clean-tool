@@ -248,6 +248,7 @@ export class DataCleaningController {
                 files: result.files.map(file => ({
                     id: file.id,
                     jobId: file.jobId,
+                    taskId: file.taskId,
                     originalFileName: file.originalFileName,
                     fileSize: file.fileSize,
                     fileType: file.fileType,
@@ -306,6 +307,7 @@ export class DataCleaningController {
                 file: {
                     id: fileRecord.id,
                     jobId: fileRecord.jobId,
+                    taskId: fileRecord.taskId,
                     originalFileName: fileRecord.originalFileName,
                     fileSize: fileRecord.fileSize,
                     fileType: fileRecord.fileType,

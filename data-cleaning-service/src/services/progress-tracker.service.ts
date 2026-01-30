@@ -46,15 +46,33 @@ export class ProgressTrackerService {
             };
 
             // 计算进度百分比（如果提供了行数信息）
-            if (progress.processedRows !== undefined && progress.totalRows !== undefined && progress.totalRows > 0) {
-                updatedProgress.progress = Math.round((progress.processedRows / progress.totalRows) * 100);
+            if (progress.processedRows !== undefined && updatedProgress.totalRows !== undefined && updatedProgress.totalRows > 0) {
+                // 防止进度倒退：只有在处理行数确实超过总行数时才调整总行数
+                if (progress.processedRows > updatedProgress.totalRows) {
+                    // 当实际处理行数超过估算时，适度增加总行数估算
+                    const newTotalRows = Math.max(updatedProgress.totalRows, progress.processedRows * 1.05);
+                    updatedProgress.totalRows = Math.floor(newTotalRows);
+                    this.logger.debug(`调整总行数估算: ${updatedProgress.totalRows} (实际处理: ${progress.processedRows})`);
+                }
+
+                const calculatedProgress = Math.round((progress.processedRows / updatedProgress.totalRows) * 100);
+                // 限制进度在0-100%之间，并确保进度不会倒退
+                const newProgress = Math.min(100, Math.max(0, calculatedProgress));
+
+                // 防止进度倒退：新进度不能小于当前进度（除非是重置）
+                if (currentProgress.progress !== undefined && newProgress < currentProgress.progress && currentProgress.progress < 100) {
+                    this.logger.warn(`防止进度倒退: 保持进度 ${currentProgress.progress}% (计算值: ${newProgress}%)`);
+                    updatedProgress.progress = currentProgress.progress;
+                } else {
+                    updatedProgress.progress = newProgress;
+                }
             }
 
             // 计算预估剩余时间
-            if (progress.processedRows && progress.totalRows && progress.processedRows > 0) {
+            if (progress.processedRows && updatedProgress.totalRows && progress.processedRows > 0) {
                 updatedProgress.estimatedTimeRemaining = this.calculateETA(
                     progress.processedRows,
-                    progress.totalRows,
+                    updatedProgress.totalRows,
                     this.taskStartTimes.get(taskId)
                 );
             }

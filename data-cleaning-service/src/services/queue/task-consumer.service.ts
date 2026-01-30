@@ -4,7 +4,9 @@ import { ErrorHandlerService, ErrorType } from './error-handler.service';
 import { TimeoutManagerService } from './timeout-manager.service';
 import { DataCleanerService } from '../data-cleaner.service';
 import { FileService } from '../file.service';
+import { FileRecordService } from '../file-record.service';
 import { ProcessingTask, TaskStatus, ProgressInfo } from '../../common/types/queue.types';
+import { FileStatus, Statistics } from '../../common/types';
 
 /**
  * 任务消费者服务
@@ -24,7 +26,8 @@ export class TaskConsumerService implements OnModuleDestroy {
         private readonly errorHandler: ErrorHandlerService,
         private readonly timeoutManager: TimeoutManagerService,
         private readonly dataCleanerService: DataCleanerService,
-        private readonly fileService: FileService
+        private readonly fileService: FileService,
+        private readonly fileRecordService: FileRecordService
     ) { }
 
     async onModuleDestroy() {
@@ -155,7 +158,7 @@ export class TaskConsumerService implements OnModuleDestroy {
             // 清除超时监控
             this.timeoutManager.clearTimeout(taskId);
 
-            // 更新为完成状态
+            // 更新Redis任务状态为完成
             await this.queueManager.setTaskStatus(taskId, TaskStatus.COMPLETED, {
                 completedAt: new Date(),
                 statistics: {
@@ -167,6 +170,15 @@ export class TaskConsumerService implements OnModuleDestroy {
                     processingTimeMs: Date.now() - task.createdAt.getTime()
                 }
             });
+
+            // 同步更新数据库文件记录状态
+            try {
+                await this.updateDatabaseFileStatus(task, result, FileStatus.COMPLETED);
+                this.logger.log(`Database file record updated for task ${taskId}`);
+            } catch (dbError) {
+                this.logger.error(`Failed to update database file record for task ${taskId}:`, dbError);
+                // 数据库更新失败不应该影响任务完成状态，但需要记录错误
+            }
 
             // 最终进度更新
             await this.updateProgress(taskId, {
@@ -196,13 +208,21 @@ export class TaskConsumerService implements OnModuleDestroy {
                 // 处理永久失败
                 await this.errorHandler.handlePermanentFailure(task, error);
 
-                // 标记为永久失败
+                // 标记Redis任务为永久失败
                 await this.queueManager.setTaskStatus(taskId, TaskStatus.FAILED, {
                     completedAt: new Date(),
                     errorMessage: error.message,
                     errorType: this.errorHandler.classifyError(error),
                     errorSummary: this.errorHandler.createErrorSummary(error, task)
                 });
+
+                // 同步更新数据库文件记录状态
+                try {
+                    await this.updateDatabaseFileStatus(task, null, FileStatus.FAILED, error.message);
+                    this.logger.log(`Database file record marked as failed for task ${taskId}`);
+                } catch (dbError) {
+                    this.logger.error(`Failed to update database file record for failed task ${taskId}:`, dbError);
+                }
 
                 this.logger.error(`Task ${taskId} marked as permanently failed: ${error.message}`);
             }
@@ -286,6 +306,59 @@ export class TaskConsumerService implements OnModuleDestroy {
             message.includes('redis') ||
             message.includes('econnreset') ||
             message.includes('etimedout');
+    }
+
+    /**
+     * 同步更新数据库文件记录状态
+     * 确保Redis任务状态和数据库文件记录状态保持一致
+     */
+    private async updateDatabaseFileStatus(
+        task: ProcessingTask,
+        result: any | null,
+        status: FileStatus,
+        errorMessage?: string
+    ): Promise<void> {
+        try {
+            // 根据taskId查找对应的文件记录
+            // taskId格式通常是 job_timestamp_randomstring，我们需要找到对应的fileRecord
+            const fileRecord = await this.fileRecordService.getFileRecordByJobId(task.taskId);
+
+            if (!fileRecord) {
+                this.logger.warn(`No file record found for task ${task.taskId}`);
+                return;
+            }
+
+            // 准备统计信息（仅在成功时提供）
+            let statistics: Statistics | undefined = undefined;
+            if (result && result.statistics && status === FileStatus.COMPLETED) {
+                statistics = {
+                    totalRows: result.statistics.totalRows,
+                    cleanedRows: result.statistics.processedRows,
+                    exceptionRows: result.statistics.errorRows || 0,
+                    processingTime: Date.now() - task.createdAt.getTime()
+                };
+            }
+
+            // 更新文件记录状态
+            await this.fileRecordService.updateFileStatus(
+                fileRecord.id,
+                status,
+                statistics
+            );
+
+            // 如果是失败状态，还需要更新错误信息
+            if (status === FileStatus.FAILED && errorMessage) {
+                // 直接更新文件记录的错误信息
+                fileRecord.errorMessage = errorMessage;
+                await this.fileRecordService.updateFileRecordWithTaskInfo(fileRecord);
+            }
+
+            this.logger.log(`Database file record ${fileRecord.id} updated to status: ${status}`);
+
+        } catch (error) {
+            this.logger.error(`Failed to update database file status for task ${task.taskId}:`, error);
+            throw error; // 重新抛出错误，让调用者决定如何处理
+        }
     }
 
     /**

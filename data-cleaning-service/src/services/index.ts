@@ -10,6 +10,7 @@ export * from './phone-cleaner.service';
 export * from './date-cleaner.service';
 export * from './address-cleaner.service';
 export * from './data-cleaner.service';
+export * from './data-cleaner-optimized.service';
 export * from './export.service';
 export * from './database-persistence.service';
 export * from './task-producer.service';
