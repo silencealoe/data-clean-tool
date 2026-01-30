@@ -3,11 +3,11 @@ import { ConfigService } from '@nestjs/config';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import * as fs from 'fs';
 import * as path from 'path';
-import { 
-  ConfigValidationService, 
-  ConfigValidationResult, 
-  RedisConfig, 
-  QueueConfig 
+import {
+  ConfigValidationService,
+  ConfigValidationResult,
+  RedisConfig,
+  QueueConfig
 } from './config-validation.service';
 
 export interface ConfigChangeEvent {
@@ -28,7 +28,6 @@ export interface ConfigSnapshot {
 export class ConfigManagerService implements OnModuleInit {
   private readonly logger = new Logger(ConfigManagerService.name);
   private configSnapshot: ConfigSnapshot;
-  private fileWatchers: fs.FSWatcher[] = [];
   private readonly configFiles = [
     path.join(process.cwd(), '.env'),
     path.join(process.cwd(), 'src/config/redis.config.ts'),
@@ -39,30 +38,34 @@ export class ConfigManagerService implements OnModuleInit {
     private readonly configService: ConfigService,
     private readonly configValidation: ConfigValidationService,
     private readonly eventEmitter: EventEmitter2,
-  ) {}
+  ) { }
 
   async onModuleInit() {
     // Create initial snapshot
     await this.createSnapshot();
-    
+
     // Validate initial configuration
     const validation = this.configValidation.validateAllConfigs();
     this.configValidation.logValidationResults(validation);
-    
+
     if (!validation.isValid) {
       throw new Error(`Invalid configuration: ${validation.errors.join(', ')}`);
     }
 
     // Setup file watchers for hot reload
     this.setupFileWatchers();
-    
+
     this.logger.log('Configuration manager initialized');
   }
 
   private async createSnapshot(): Promise<void> {
     const redis = this.configService.get<RedisConfig>('redis');
     const queue = this.configService.get<QueueConfig>('queue');
-    
+
+    if (!redis || !queue) {
+      throw new Error('Missing required configuration sections (redis or queue)');
+    }
+
     this.configSnapshot = {
       redis,
       queue,
@@ -89,15 +92,15 @@ export class ConfigManagerService implements OnModuleInit {
 
   async reloadConfiguration(): Promise<ConfigValidationResult> {
     this.logger.log('Reloading configuration...');
-    
+
     try {
       // Create new snapshot
       const oldSnapshot = { ...this.configSnapshot };
       await this.createSnapshot();
-      
+
       // Validate new configuration
       const validation = this.configValidation.validateAllConfigs();
-      
+
       if (!validation.isValid) {
         // Rollback to old snapshot
         this.configSnapshot = oldSnapshot;
@@ -107,10 +110,10 @@ export class ConfigManagerService implements OnModuleInit {
 
       // Emit change events for modified sections
       await this.emitConfigChanges(oldSnapshot, this.configSnapshot);
-      
+
       this.logger.log(`Configuration reloaded successfully (version: ${this.configSnapshot.version})`);
       return validation;
-      
+
     } catch (error) {
       this.logger.error('Failed to reload configuration', error);
       return {
@@ -130,7 +133,7 @@ export class ConfigManagerService implements OnModuleInit {
         newValue: newSnapshot.redis,
         timestamp: new Date(),
       };
-      
+
       this.eventEmitter.emit('config.changed', changeEvent);
       this.eventEmitter.emit('config.redis.changed', changeEvent);
       this.logger.log('Redis configuration changed');
@@ -144,7 +147,7 @@ export class ConfigManagerService implements OnModuleInit {
         newValue: newSnapshot.queue,
         timestamp: new Date(),
       };
-      
+
       this.eventEmitter.emit('config.changed', changeEvent);
       this.eventEmitter.emit('config.queue.changed', changeEvent);
       this.logger.log('Queue configuration changed');
@@ -159,12 +162,13 @@ export class ConfigManagerService implements OnModuleInit {
 
     this.configFiles.forEach(filePath => {
       if (fs.existsSync(filePath)) {
-        const watcher = fs.watchFile(filePath, { interval: 5000 }, () => {
+        // Use fs.watchFile which returns a StatWatcher, but we don't need to store it
+        // since it's automatically managed by Node.js
+        fs.watchFile(filePath, { interval: 5000 }, () => {
           this.logger.log(`Configuration file changed: ${filePath}`);
           this.reloadConfiguration();
         });
-        
-        this.fileWatchers.push(watcher);
+
         this.logger.log(`Watching configuration file: ${filePath}`);
       }
     });
@@ -177,38 +181,38 @@ export class ConfigManagerService implements OnModuleInit {
   async updateRedisConfig(updates: Partial<RedisConfig>): Promise<ConfigValidationResult> {
     const currentConfig = this.getRedisConfig();
     const newConfig = { ...currentConfig, ...updates };
-    
+
     const validation = this.configValidation.validateRedisConfig(newConfig);
-    
+
     if (validation.isValid) {
       const oldSnapshot = { ...this.configSnapshot };
       this.configSnapshot.redis = newConfig;
       this.configSnapshot.timestamp = new Date();
       this.configSnapshot.version = this.generateVersion();
-      
+
       await this.emitConfigChanges(oldSnapshot, this.configSnapshot);
       this.logger.log('Redis configuration updated programmatically');
     }
-    
+
     return validation;
   }
 
   async updateQueueConfig(updates: Partial<QueueConfig>): Promise<ConfigValidationResult> {
     const currentConfig = this.getQueueConfig();
     const newConfig = { ...currentConfig, ...updates };
-    
+
     const validation = this.configValidation.validateQueueConfig(newConfig);
-    
+
     if (validation.isValid) {
       const oldSnapshot = { ...this.configSnapshot };
       this.configSnapshot.queue = newConfig;
       this.configSnapshot.timestamp = new Date();
       this.configSnapshot.version = this.generateVersion();
-      
+
       await this.emitConfigChanges(oldSnapshot, this.configSnapshot);
       this.logger.log('Queue configuration updated programmatically');
     }
-    
+
     return validation;
   }
 
@@ -232,13 +236,12 @@ export class ConfigManagerService implements OnModuleInit {
   }
 
   onModuleDestroy() {
-    // Clean up file watchers
-    this.fileWatchers.forEach(watcher => {
-      if (typeof watcher.close === 'function') {
-        watcher.close();
+    // Clean up file watchers by unwatching all files
+    this.configFiles.forEach(filePath => {
+      if (fs.existsSync(filePath)) {
+        fs.unwatchFile(filePath);
       }
     });
-    this.fileWatchers = [];
     this.logger.log('Configuration manager destroyed');
   }
 }

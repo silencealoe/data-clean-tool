@@ -35,9 +35,10 @@ export class QueueManagerService implements QueueManagerInterface, OnModuleDestr
             commandTimeout: redisConfig.commandTimeout,
             enableReadyCheck: redisConfig.enableReadyCheck,
             maxRetriesPerRequest: redisConfig.maxRetriesPerRequest,
-            // Enable automatic retry
-            enableOfflineQueue: false,
-            lazyConnect: true,
+            // Enable offline queue to buffer commands when disconnected
+            enableOfflineQueue: true,
+            // Don't use lazy connect to establish connection immediately
+            lazyConnect: false,
         });
 
         // Get queue configuration
@@ -152,6 +153,11 @@ export class QueueManagerService implements QueueManagerInterface, OnModuleDestr
             const [, taskData] = result;
             const task: ProcessingTask = JSON.parse(taskData);
 
+            // Fix date deserialization - convert string back to Date object
+            if (task.createdAt && typeof task.createdAt === 'string') {
+                task.createdAt = new Date(task.createdAt);
+            }
+
             this.logger.log(`Task ${task.taskId} dequeued successfully`);
             return task;
         } catch (error) {
@@ -178,13 +184,33 @@ export class QueueManagerService implements QueueManagerInterface, OnModuleDestr
         try {
             await this.ensureConnection();
             const statusKey = `task:status:${taskId}`;
-            const statusData = {
+
+            // Convert all values to strings for Redis compatibility
+            const statusData: Record<string, string> = {
                 status,
-                ...data,
             };
 
-            // Store status with TTL
-            await this.redis.hmset(statusKey, statusData);
+            // Add additional data, converting all values to strings
+            if (data) {
+                Object.keys(data).forEach(key => {
+                    const value = data[key];
+                    if (value instanceof Date) {
+                        statusData[key] = value.toISOString();
+                    } else if (value !== null && value !== undefined) {
+                        // Special handling for objects - serialize as JSON
+                        if (typeof value === 'object' && value !== null) {
+                            statusData[key] = JSON.stringify(value);
+                        } else {
+                            statusData[key] = String(value);
+                        }
+                    }
+                });
+            }
+
+            // Store status with TTL using individual field sets
+            for (const [field, value] of Object.entries(statusData)) {
+                await this.redis.hset(statusKey, field, value);
+            }
             await this.redis.expire(statusKey, this.taskTtlSeconds);
 
             this.logger.debug(`Task ${taskId} status updated to ${status}`);
@@ -212,7 +238,7 @@ export class QueueManagerService implements QueueManagerInterface, OnModuleDestr
                 startedAt: statusData.startedAt ? new Date(statusData.startedAt) : undefined,
                 completedAt: statusData.completedAt ? new Date(statusData.completedAt) : undefined,
                 errorMessage: statusData.errorMessage,
-                statistics: statusData.statistics ? JSON.parse(statusData.statistics) : undefined,
+                statistics: statusData.statistics ? this.parseStatistics(statusData.statistics) : undefined,
             };
         } catch (error) {
             this.logger.error(`Failed to get status for task ${taskId}:`, error);
@@ -220,17 +246,40 @@ export class QueueManagerService implements QueueManagerInterface, OnModuleDestr
         }
     }
 
+    private parseStatistics(statisticsString: string): any {
+        try {
+            return JSON.parse(statisticsString);
+        } catch (error) {
+            this.logger.warn(`Failed to parse statistics JSON: ${statisticsString}`, error);
+            // If it's not valid JSON, return as-is or null
+            return null;
+        }
+    }
+
     async updateProgress(taskId: string, progress: ProgressInfo): Promise<void> {
         try {
             await this.ensureConnection();
             const progressKey = `task:progress:${taskId}`;
-            const progressData = {
-                ...progress,
+
+            // Convert all values to strings for Redis compatibility
+            const progressData: Record<string, string> = {
                 lastUpdated: new Date().toISOString(),
             };
 
-            // Store progress with TTL
-            await this.redis.hmset(progressKey, progressData);
+            // Add progress data, converting all values to strings
+            Object.keys(progress).forEach(key => {
+                const value = progress[key];
+                if (value instanceof Date) {
+                    progressData[key] = value.toISOString();
+                } else if (value !== null && value !== undefined) {
+                    progressData[key] = String(value);
+                }
+            });
+
+            // Store progress with TTL using individual field sets
+            for (const [field, value] of Object.entries(progressData)) {
+                await this.redis.hset(progressKey, field, value);
+            }
             await this.redis.expire(progressKey, this.taskTtlSeconds);
 
             this.logger.debug(`Task ${taskId} progress updated to ${progress.progress}%`);

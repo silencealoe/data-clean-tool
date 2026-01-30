@@ -1153,6 +1153,235 @@
           "async-processing"
         ]
       }
+    },
+    "/api/monitoring/health": {
+      "get": {
+        "operationId": "MonitoringController_getHealth",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "健康检查成功"
+          },
+          "503": {
+            "description": "系统不健康"
+          }
+        },
+        "summary": "获取系统健康状态",
+        "tags": [
+          "monitoring"
+        ]
+      }
+    },
+    "/api/monitoring/health/detailed": {
+      "get": {
+        "operationId": "MonitoringController_getDetailedHealth",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "详细健康报告"
+          }
+        },
+        "summary": "获取详细健康报告",
+        "tags": [
+          "monitoring"
+        ]
+      }
+    },
+    "/api/monitoring/health/ready": {
+      "get": {
+        "operationId": "MonitoringController_getReadiness",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "服务就绪"
+          },
+          "503": {
+            "description": "服务未就绪"
+          }
+        },
+        "summary": "就绪检查 - 用于Kubernetes readiness probe",
+        "tags": [
+          "monitoring"
+        ]
+      }
+    },
+    "/api/monitoring/health/live": {
+      "get": {
+        "operationId": "MonitoringController_getLiveness",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "服务存活"
+          }
+        },
+        "summary": "存活检查 - 用于Kubernetes liveness probe",
+        "tags": [
+          "monitoring"
+        ]
+      }
+    },
+    "/api/monitoring/metrics": {
+      "get": {
+        "operationId": "MonitoringController_getMetrics",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "系统指标数据"
+          }
+        },
+        "summary": "获取系统指标",
+        "tags": [
+          "monitoring"
+        ]
+      }
+    },
+    "/api/monitoring/metrics/queue": {
+      "get": {
+        "operationId": "MonitoringController_getQueueMetrics",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "队列指标数据"
+          }
+        },
+        "summary": "获取队列指标",
+        "tags": [
+          "monitoring"
+        ]
+      }
+    },
+    "/api/monitoring/metrics/system": {
+      "get": {
+        "operationId": "MonitoringController_getSystemMetrics",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "系统资源指标"
+          }
+        },
+        "summary": "获取系统资源指标",
+        "tags": [
+          "monitoring"
+        ]
+      }
+    },
+    "/api/monitoring/metrics/performance": {
+      "get": {
+        "operationId": "MonitoringController_getPerformanceMetrics",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "性能指标数据"
+          }
+        },
+        "summary": "获取性能指标",
+        "tags": [
+          "monitoring"
+        ]
+      }
+    },
+    "/api/monitoring/metrics/reset": {
+      "post": {
+        "operationId": "MonitoringController_resetMetrics",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "指标重置成功"
+          }
+        },
+        "summary": "重置指标数据",
+        "tags": [
+          "monitoring"
+        ]
+      }
+    },
+    "/api/monitoring/config": {
+      "get": {
+        "operationId": "MonitoringController_getConfig",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "配置信息"
+          }
+        },
+        "summary": "获取配置摘要",
+        "tags": [
+          "monitoring"
+        ]
+      }
+    },
+    "/api/monitoring/config/validate": {
+      "get": {
+        "operationId": "MonitoringController_validateConfig",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "配置验证结果"
+          }
+        },
+        "summary": "验证当前配置",
+        "tags": [
+          "monitoring"
+        ]
+      }
+    },
+    "/api/monitoring/config/reload": {
+      "post": {
+        "operationId": "MonitoringController_reloadConfig",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "配置重载成功"
+          },
+          "400": {
+            "description": "配置重载失败"
+          }
+        },
+        "summary": "重新加载配置",
+        "tags": [
+          "monitoring"
+        ]
+      }
+    },
+    "/api/monitoring/status": {
+      "get": {
+        "operationId": "MonitoringController_getStatus",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "服务状态概览"
+          }
+        },
+        "summary": "获取服务状态概览",
+        "tags": [
+          "monitoring"
+        ]
+      }
+    },
+    "/api/monitoring/prometheus": {
+      "get": {
+        "operationId": "MonitoringController_getPrometheusMetrics",
+        "parameters": [
+          {
+            "name": "format",
+            "required": false,
+            "in": "query",
+            "description": "输出格式 (prometheus|json)",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Prometheus指标格式"
+          }
+        },
+        "summary": "获取Prometheus格式的指标",
+        "tags": [
+          "monitoring"
+        ]
+      }
     }
   },
   "info": {

@@ -41,7 +41,11 @@ export class HealthCheckService {
       port: redisConfig.port,
       password: redisConfig.password,
       db: redisConfig.db,
+      connectTimeout: redisConfig.connectTimeout,
+      commandTimeout: redisConfig.commandTimeout,
       maxRetriesPerRequest: 3,
+      enableOfflineQueue: true,
+      lazyConnect: false,
     });
   }
 
@@ -68,7 +72,7 @@ export class HealthCheckService {
 
   private async checkRedisHealth(): Promise<ComponentHealth> {
     const startTime = Date.now();
-    
+
     try {
       // Test basic Redis operations
       const testKey = `health:check:${Date.now()}`;
@@ -111,11 +115,11 @@ export class HealthCheckService {
 
   private async checkDatabaseHealth(): Promise<ComponentHealth> {
     const startTime = Date.now();
-    
+
     try {
       // Test database connection
       const result = await this.connection.query('SELECT 1 as test');
-      
+
       if (!result || result[0]?.test !== 1) {
         throw new Error('Database query test failed');
       }
@@ -146,26 +150,26 @@ export class HealthCheckService {
 
   private async checkQueueHealth(): Promise<ComponentHealth> {
     const startTime = Date.now();
-    
+
     try {
       const queueName = this.configService.get('queue.queueName');
       const queueKey = `queue:${queueName}`;
-      
+
       // Check queue accessibility
       const queueLength = await this.redis.llen(queueKey);
-      
+
       // Check if there are any stuck tasks
       const processingTasks = await this.redis.hlen('task:status:*');
-      
+
       const responseTime = Date.now() - startTime;
-      
+
       // Determine status based on queue conditions
       let status: 'healthy' | 'degraded' | 'unhealthy' = 'healthy';
-      
+
       if (queueLength > 1000) {
         status = 'degraded'; // Queue is getting large
       }
-      
+
       if (responseTime > 1000) {
         status = 'degraded'; // Slow response
       }
@@ -192,7 +196,7 @@ export class HealthCheckService {
 
   private async checkMemoryHealth(): Promise<ComponentHealth> {
     const startTime = Date.now();
-    
+
     try {
       const memoryUsage = process.memoryUsage();
       const totalMemory = memoryUsage.heapTotal + memoryUsage.external;
@@ -200,7 +204,7 @@ export class HealthCheckService {
       const memoryUtilization = (usedMemory / totalMemory) * 100;
 
       let status: 'healthy' | 'degraded' | 'unhealthy' = 'healthy';
-      
+
       if (memoryUtilization > 90) {
         status = 'unhealthy';
       } else if (memoryUtilization > 75) {
@@ -230,32 +234,32 @@ export class HealthCheckService {
 
   private async checkDiskHealth(): Promise<ComponentHealth> {
     const startTime = Date.now();
-    
+
     try {
       const fs = require('fs');
       const path = require('path');
-      
+
       // Check if we can write to temp directory
       const tempDir = path.join(process.cwd(), 'temp');
       const testFile = path.join(tempDir, `health-check-${Date.now()}.tmp`);
-      
+
       // Ensure temp directory exists
       if (!fs.existsSync(tempDir)) {
         fs.mkdirSync(tempDir, { recursive: true });
       }
-      
+
       // Test write operation
       fs.writeFileSync(testFile, 'health check test');
       const content = fs.readFileSync(testFile, 'utf8');
       fs.unlinkSync(testFile);
-      
+
       if (content !== 'health check test') {
         throw new Error('Disk read/write test failed');
       }
 
       // Get disk space info (simplified)
       const stats = fs.statSync(process.cwd());
-      
+
       return {
         name: 'disk',
         status: 'healthy',
@@ -285,17 +289,17 @@ export class HealthCheckService {
     if (unhealthyComponents.length > 0) {
       return 'unhealthy';
     }
-    
+
     if (degradedComponents.length > 0) {
       return 'degraded';
     }
-    
+
     return 'healthy';
   }
 
   async getDetailedHealthReport(): Promise<any> {
     const healthStatus = await this.getHealthStatus();
-    
+
     // Add additional system information
     const additionalInfo = {
       nodeVersion: process.version,
@@ -325,16 +329,16 @@ export class HealthCheckService {
 
   async waitForHealthy(timeoutMs: number = 30000): Promise<boolean> {
     const startTime = Date.now();
-    
+
     while (Date.now() - startTime < timeoutMs) {
       if (await this.isHealthy()) {
         return true;
       }
-      
+
       // Wait 1 second before next check
       await new Promise(resolve => setTimeout(resolve, 1000));
     }
-    
+
     return false;
   }
 }

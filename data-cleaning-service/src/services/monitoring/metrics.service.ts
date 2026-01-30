@@ -69,11 +69,25 @@ export class MetricsService {
       port: redisConfig.port,
       password: redisConfig.password,
       db: redisConfig.db,
+      connectTimeout: redisConfig.connectTimeout,
+      commandTimeout: redisConfig.commandTimeout,
       maxRetriesPerRequest: 3,
+      // Enable offline queue to buffer commands when disconnected
+      enableOfflineQueue: true,
+      // Don't use lazy connect to establish connection immediately
+      lazyConnect: false,
     });
 
     this.redis.on('error', (error) => {
       this.logger.error('Redis connection error in metrics service', error);
+    });
+
+    this.redis.on('connect', () => {
+      this.logger.log('Redis connected successfully in metrics service');
+    });
+
+    this.redis.on('ready', () => {
+      this.logger.log('Redis ready in metrics service');
     });
   }
 
@@ -98,13 +112,13 @@ export class MetricsService {
     try {
       const queueName = this.configService.get('queue.queueName');
       const pipeline = this.redis.pipeline();
-      
+
       // Get queue length
       pipeline.llen(`queue:${queueName}`);
-      
+
       // Get metrics from Redis hash
-      pipeline.hmget(this.METRICS_KEY, 
-        'totalEnqueued', 'totalProcessed', 'totalFailed', 'totalRetried', 
+      pipeline.hmget(this.METRICS_KEY,
+        'totalEnqueued', 'totalProcessed', 'totalFailed', 'totalRetried',
         'activeWorkers', 'averageProcessingTime', 'throughputPerMinute', 'errorRate'
       );
 
@@ -150,7 +164,7 @@ export class MetricsService {
     try {
       const memoryUsage = process.memoryUsage();
       const uptime = process.uptime();
-      
+
       // Get Redis info
       const redisInfo = await this.redis.info('memory');
       const redisMemoryMatch = redisInfo.match(/used_memory:(\d+)/);
@@ -223,16 +237,20 @@ export class MetricsService {
       // Calculate average queue length
       const recentThroughput = this.performanceData.throughputHistory.slice(-60); // Last hour
       if (recentThroughput.length > 0) {
-        this.performanceData.averageQueueLength = 
+        this.performanceData.averageQueueLength =
           recentThroughput.reduce((sum, entry) => sum + entry.count, 0) / recentThroughput.length;
       }
 
-      // Store performance data in Redis
-      await this.redis.hset(this.PERFORMANCE_KEY, {
-        peakQueueLength: this.performanceData.peakQueueLength,
-        averageQueueLength: this.performanceData.averageQueueLength,
+      // Store performance data in Redis using individual field sets
+      const performanceData = {
+        peakQueueLength: this.performanceData.peakQueueLength.toString(),
+        averageQueueLength: this.performanceData.averageQueueLength.toString(),
         lastUpdated: new Date().toISOString(),
-      });
+      };
+
+      for (const [field, value] of Object.entries(performanceData)) {
+        await this.redis.hset(this.PERFORMANCE_KEY, field, value);
+      }
 
       this.logger.debug('Metrics collected and stored successfully');
     } catch (error) {
@@ -242,7 +260,7 @@ export class MetricsService {
 
   private cleanupPerformanceData(): void {
     const maxEntries = 1000;
-    
+
     // Keep only recent processing times
     if (this.performanceData.processingTimes.length > maxEntries) {
       this.performanceData.processingTimes = this.performanceData.processingTimes.slice(-maxEntries);
@@ -285,7 +303,7 @@ export class MetricsService {
   async handleTaskProcessingFailed(data: { taskId: string; error: string; isRetry: boolean }): Promise<void> {
     await this.incrementMetric('totalFailed');
     await this.decrementMetric('activeWorkers');
-    
+
     if (data.isRetry) {
       await this.incrementMetric('totalRetried');
     }
@@ -294,7 +312,7 @@ export class MetricsService {
     const errorType = this.classifyError(data.error);
     const currentCount = this.performanceData.errorCounts.get(errorType) || 0;
     this.performanceData.errorCounts.set(errorType, currentCount + 1);
-    
+
     await this.updateErrorRate();
   }
 
@@ -319,7 +337,7 @@ export class MetricsService {
 
     const recent = this.performanceData.processingTimes.slice(-100); // Last 100 tasks
     const average = recent.reduce((sum, time) => sum + time, 0) / recent.length;
-    
+
     try {
       await this.redis.hset(this.METRICS_KEY, 'averageProcessingTime', average.toFixed(2));
     } catch (error) {
@@ -332,8 +350,8 @@ export class MetricsService {
       const oneMinuteAgo = Date.now() - 60000;
       const recentCompletions = this.performanceData.throughputHistory
         .filter(entry => entry.timestamp.getTime() > oneMinuteAgo).length;
-      
-      await this.redis.hset(this.METRICS_KEY, 'throughputPerMinute', recentCompletions);
+
+      await this.redis.hset(this.METRICS_KEY, 'throughputPerMinute', recentCompletions.toString());
     } catch (error) {
       this.logger.error('Failed to update throughput', error);
     }
@@ -343,11 +361,11 @@ export class MetricsService {
     try {
       const totalProcessed = await this.redis.hget(this.METRICS_KEY, 'totalProcessed');
       const totalFailed = await this.redis.hget(this.METRICS_KEY, 'totalFailed');
-      
+
       const processed = parseInt(totalProcessed || '0');
       const failed = parseInt(totalFailed || '0');
       const total = processed + failed;
-      
+
       const errorRate = total > 0 ? (failed / total) * 100 : 0;
       await this.redis.hset(this.METRICS_KEY, 'errorRate', errorRate.toFixed(2));
     } catch (error) {
@@ -369,7 +387,7 @@ export class MetricsService {
       await this.redis.del(this.METRICS_KEY);
       await this.redis.del(this.PERFORMANCE_KEY);
       this.metricsCache.clear();
-      
+
       // Reset performance data
       this.performanceData = {
         processingTimes: [],
@@ -379,7 +397,7 @@ export class MetricsService {
         peakQueueLength: 0,
         averageQueueLength: 0,
       };
-      
+
       this.logger.log('Metrics reset successfully');
     } catch (error) {
       this.logger.error('Failed to reset metrics', error);

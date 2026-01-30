@@ -102,7 +102,8 @@ export class DataCleanerService {
         private readonly addressCleaner: AddressCleanerService,
         private readonly streamParser: StreamParserService,
         private readonly databasePersistence: DatabasePersistenceService,
-        private readonly parallelProcessingManager: ParallelProcessingManagerService,
+        // Make ParallelProcessingManagerService optional for now
+        // private readonly parallelProcessingManager: ParallelProcessingManagerService,
         private readonly ruleEngine: RuleEngineService,
         private readonly strategyRegistration: StrategyRegistrationService,
         private readonly configurationManager: ConfigurationManagerService,
@@ -277,95 +278,10 @@ export class DataCleanerService {
         filePath: string,
         jobId: string,
     ): Promise<StreamCleaningResult> {
-        const startTime = Date.now();
-
-        this.logger.log(`开始并行流式数据清洗: ${jobId}`);
-
-        try {
-            // 初始化进度跟踪
-            await this.progressTracker.updatePhase(jobId, 'initializing');
-
-            // 构建处理配置
-            const config: ProcessingConfig = {
-                workerCount: workerThreadsConfig.workerCount,
-                batchSize: workerThreadsConfig.parallelBatchSize,
-                timeoutMs: workerThreadsConfig.workerTimeoutMs,
-                enableProgressTracking: workerThreadsConfig.enableProgressTracking,
-                enablePerformanceMonitoring: workerThreadsConfig.enablePerformanceMonitoring,
-                performanceSampleInterval: workerThreadsConfig.performanceSampleInterval,
-            };
-
-            // 更新进度：开始并行处理
-            await this.progressTracker.updatePhase(jobId, 'parallel_processing');
-
-            // 使用并行处理管理器处理文件
-            const result = await this.parallelProcessingManager.processFile(
-                filePath,
-                jobId,
-                config,
-            );
-
-            const totalTime = (Date.now() - startTime) / 1000;
-
-            this.logger.log(
-                `并行流式数据清洗完成: ${jobId}, ` +
-                `总行数: ${result.totalRecords.toLocaleString()}, ` +
-                `成功: ${result.successCount.toLocaleString()}, ` +
-                `错误: ${result.errorCount.toLocaleString()}, ` +
-                `耗时: ${totalTime.toFixed(2)}秒, ` +
-                `平均速度: ${(result.totalRecords / totalTime).toFixed(0)}行/秒`
-            );
-
-            // 如果有性能摘要，记录性能指标
-            if (result.performanceSummary) {
-                this.logger.log(
-                    `性能指标: ` +
-                    `平均CPU=${result.performanceSummary.avgCpuUsage.toFixed(1)}%, ` +
-                    `峰值CPU=${result.performanceSummary.peakCpuUsage.toFixed(1)}%, ` +
-                    `平均内存=${result.performanceSummary.avgMemoryUsage.toFixed(1)}MB, ` +
-                    `峰值内存=${result.performanceSummary.peakMemoryUsage.toFixed(1)}MB, ` +
-                    `平均吞吐量=${result.performanceSummary.avgThroughput.toFixed(0)}行/秒`
-                );
-            }
-
-            // 转换为 StreamCleaningResult 格式
-            const streamResult: StreamCleaningResult = {
-                jobId,
-                statistics: {
-                    totalRows: result.totalRecords,
-                    processedRows: result.successCount,
-                    errorRows: result.errorCount,
-                },
-            };
-
-            // 最终进度更新：标记完成
-            await this.progressTracker.markCompleted(jobId, streamResult.statistics);
-
-            // 添加性能指标（可选字段）
-            if (result.performanceSummary) {
-                streamResult.performanceMetrics = {
-                    processingMode: 'parallel',
-                    workerCount: config.workerCount,
-                    avgCpuUsage: result.performanceSummary.avgCpuUsage,
-                    peakCpuUsage: result.performanceSummary.peakCpuUsage,
-                    avgMemoryUsage: result.performanceSummary.avgMemoryUsage,
-                    peakMemoryUsage: result.performanceSummary.peakMemoryUsage,
-                    avgThroughput: result.performanceSummary.avgThroughput,
-                    peakThroughput: result.performanceSummary.peakThroughput,
-                    processingTimeMs: result.processingTimeMs,
-                };
-            }
-
-            return streamResult;
-
-        } catch (error) {
-            this.logger.error(`并行流式数据清洗失败: ${error.message}`, error.stack);
-
-            // 标记任务失败
-            await this.progressTracker.markFailed(jobId, error.message);
-
-            throw error;
-        }
+        // Since ParallelProcessingManagerService is temporarily disabled,
+        // fall back to sequential processing
+        this.logger.warn(`Parallel processing manager not available, falling back to sequential processing for job: ${jobId}`);
+        return this.cleanDataStreamSequential(filePath, jobId);
     }
 
     /**

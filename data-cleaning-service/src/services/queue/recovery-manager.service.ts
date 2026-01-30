@@ -71,13 +71,16 @@ export class RecoveryManagerService implements RecoveryManagerInterface, OnModul
             commandTimeout: redisConfig.commandTimeout,
             enableReadyCheck: redisConfig.enableReadyCheck,
             maxRetriesPerRequest: redisConfig.maxRetriesPerRequest,
-            lazyConnect: true,
+            // Enable offline queue to buffer commands when disconnected
+            enableOfflineQueue: true,
+            // Don't use lazy connect to establish connection immediately
+            lazyConnect: false,
         });
 
         // 从配置获取恢复参数
         const queueConfig = this.configService.get('queue');
         const recoveryConfig = queueConfig?.recovery || {};
-        
+
         this.abandonedTaskThresholdMs = recoveryConfig.abandonedTaskThresholdMs || 60 * 60 * 1000; // 默认1小时
         this.maxRecoveryAttempts = recoveryConfig.maxRecoveryAttempts || 3;
         this.recoveryBatchSize = recoveryConfig.batchSize || 50;
@@ -143,7 +146,7 @@ export class RecoveryManagerService implements RecoveryManagerInterface, OnModul
             // 批量恢复被遗弃的任务
             for (let i = 0; i < abandonedTasks.length; i += this.recoveryBatchSize) {
                 const batch = abandonedTasks.slice(i, i + this.recoveryBatchSize);
-                
+
                 this.logger.log(`Processing recovery batch ${Math.floor(i / this.recoveryBatchSize) + 1}/${Math.ceil(abandonedTasks.length / this.recoveryBatchSize)} (${batch.length} tasks)`);
 
                 await Promise.allSettled(
@@ -196,7 +199,7 @@ export class RecoveryManagerService implements RecoveryManagerInterface, OnModul
 
             // 扫描所有任务状态键
             const statusKeys = await this.redis.keys('task:status:*');
-            
+
             if (statusKeys.length === 0) {
                 this.logger.debug('No task status keys found');
                 return abandonedTasks;
@@ -207,7 +210,7 @@ export class RecoveryManagerService implements RecoveryManagerInterface, OnModul
             // 批量检查任务状态
             for (let i = 0; i < statusKeys.length; i += this.recoveryBatchSize) {
                 const batch = statusKeys.slice(i, i + this.recoveryBatchSize);
-                
+
                 const pipeline = this.redis.pipeline();
                 batch.forEach(key => pipeline.hgetall(key));
                 const results = await pipeline.exec();
@@ -217,7 +220,7 @@ export class RecoveryManagerService implements RecoveryManagerInterface, OnModul
                 for (let j = 0; j < batch.length; j++) {
                     const key = batch[j];
                     const result = results[j];
-                    
+
                     if (!result || result[0] !== null) continue; // 跳过错误结果
 
                     const statusData = result[1] as Record<string, string>;
@@ -230,7 +233,7 @@ export class RecoveryManagerService implements RecoveryManagerInterface, OnModul
                     // 检查是否为被遗弃的处理中任务
                     if (status === TaskStatus.PROCESSING && startedAt) {
                         const elapsedMs = Date.now() - startedAt.getTime();
-                        
+
                         if (elapsedMs > this.abandonedTaskThresholdMs) {
                             abandonedTasks.push({
                                 taskId,
@@ -264,7 +267,7 @@ export class RecoveryManagerService implements RecoveryManagerInterface, OnModul
 
             // 获取任务状态信息
             const statusInfo = await this.queueManager.getTaskStatus(taskId);
-            
+
             if (statusInfo.status !== TaskStatus.PROCESSING) {
                 this.logger.debug(`Task ${taskId} is no longer in processing state (${statusInfo.status}), skipping recovery`);
                 return false;
@@ -307,13 +310,13 @@ export class RecoveryManagerService implements RecoveryManagerInterface, OnModul
 
         } catch (error) {
             this.logger.error(`Error recovering task ${taskId}:`, error);
-            
+
             try {
                 await this.markTaskAsFailed(taskId, `Recovery failed: ${error.message}`);
             } catch (markError) {
                 this.logger.error(`Failed to mark task ${taskId} as failed:`, markError);
             }
-            
+
             return false;
         }
     }
@@ -360,7 +363,7 @@ export class RecoveryManagerService implements RecoveryManagerInterface, OnModul
                 if (ttl === -1) { // 没有TTL的键
                     const taskId = key.replace('task:status:', '');
                     this.logger.warn(`Found task status without TTL: ${taskId}, setting TTL`);
-                    
+
                     const taskTtlSeconds = this.configService.get('queue.taskTtlSeconds') || 7 * 24 * 60 * 60; // 7天
                     await this.redis.expire(key, taskTtlSeconds);
                 }
@@ -372,7 +375,7 @@ export class RecoveryManagerService implements RecoveryManagerInterface, OnModul
                 if (ttl === -1) { // 没有TTL的键
                     const taskId = key.replace('task:progress:', '');
                     this.logger.warn(`Found task progress without TTL: ${taskId}, setting TTL`);
-                    
+
                     const taskTtlSeconds = this.configService.get('queue.taskTtlSeconds') || 7 * 24 * 60 * 60; // 7天
                     await this.redis.expire(key, taskTtlSeconds);
                 }
@@ -398,11 +401,11 @@ export class RecoveryManagerService implements RecoveryManagerInterface, OnModul
         this.recoveryIntervalHandle = setInterval(async () => {
             try {
                 this.logger.debug('Performing periodic recovery check...');
-                
+
                 const abandonedTasks = await this.detectAbandonedTasks();
                 if (abandonedTasks.length > 0) {
                     this.logger.log(`Periodic check found ${abandonedTasks.length} abandoned tasks`);
-                    
+
                     // 恢复被遗弃的任务
                     let recovered = 0;
                     for (const task of abandonedTasks) {
@@ -413,7 +416,7 @@ export class RecoveryManagerService implements RecoveryManagerInterface, OnModul
                             this.logger.error(`Error in periodic recovery for task ${task.taskId}:`, error);
                         }
                     }
-                    
+
                     this.logger.log(`Periodic recovery completed: ${recovered}/${abandonedTasks.length} tasks recovered`);
                 }
 
@@ -448,7 +451,7 @@ export class RecoveryManagerService implements RecoveryManagerInterface, OnModul
             await this.ensureConnection();
             const taskKey = `task:data:${taskId}`;
             const taskData = await this.redis.get(taskKey);
-            
+
             if (taskData) {
                 return JSON.parse(taskData);
             }

@@ -19,6 +19,7 @@ import {
     StrategyFactoryService,
     StrategyRegistrationService,
 } from './services';
+import { ProgressTrackerService } from './services/progress-tracker.service';
 import { QueueManagerService } from './services/queue/queue-manager.service';
 import { TaskConsumerService } from './services/queue/task-consumer.service';
 import { ErrorHandlerService } from './services/queue/error-handler.service';
@@ -100,6 +101,13 @@ import queueConfig from './config/queue.config';
         DataCleanerService,
         DatabasePersistenceService,
 
+        // 进度跟踪服务
+        ProgressTrackerService,
+        {
+            provide: 'QueueManagerInterface',
+            useExisting: QueueManagerService,
+        },
+
         // 解析服务
         ParserService,
         StreamParserService,
@@ -120,6 +128,9 @@ import queueConfig from './config/queue.config';
         StrategyCacheService,
         ParallelProcessorService,
         ConfigValidationToolService,
+
+        // 并行处理服务 - 添加缺失的服务
+        // ParallelProcessingManagerService, // 暂时注释掉，因为它有依赖注入问题
     ],
     exports: [
         // 导出主要服务供Worker进程使用

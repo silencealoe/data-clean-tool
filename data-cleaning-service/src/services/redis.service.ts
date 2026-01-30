@@ -13,7 +13,7 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
   private pubClient: Redis;
   private subClient: Redis;
 
-  constructor(private readonly configService: ConfigService) {}
+  constructor(private readonly configService: ConfigService) { }
 
   /**
    * 模块初始化时建立 Redis 连接
@@ -53,6 +53,7 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
         maxRetriesPerRequest: 3,
         enableReadyCheck: true,
         enableOfflineQueue: true,
+        lazyConnect: false,
       });
 
       // 创建发布客户端
@@ -61,6 +62,8 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
         port,
         password,
         db,
+        enableOfflineQueue: true,
+        lazyConnect: false,
       });
 
       // 创建订阅客户端
@@ -69,6 +72,8 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
         port,
         password,
         db,
+        enableOfflineQueue: true,
+        lazyConnect: false,
       });
 
       // 监听连接事件
@@ -97,7 +102,7 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
       this.logger.log(`Redis 连接成功: ${host}:${port}/${db}`);
     } catch (error) {
       this.logger.error(`Redis 连接失败 (尝试 ${retryCount + 1}):`, error);
-      
+
       if (retryCount < 5) {
         this.logger.log(`5秒后重试连接 Redis...`);
         await new Promise(resolve => setTimeout(resolve, 5000));
